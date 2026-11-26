@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
+<title>주간 납품 위젯 — 이용 안내</title>
+<link rel="stylesheet" href="notice.css">
+</head>
+<body>
+<main>
+  <h1>주간 납품 위젯 — 이용 안내</h1>
+  <p class="lead">처음 실행할 때 한 번 보여 드립니다. 이 프로그램이 무엇을 하고, 무엇을 읽고, 무엇을 남기는지입니다.
+    동의해야 시작합니다. 나중에 ☰ → <b>이용 안내 보기</b>로 다시 볼 수 있습니다.</p>
+
+  <h2>비공식 프로그램</h2>
+  <ul>
+    <li>개인이 만든 팬 도구입니다. 넥슨(마비노기 모바일)과 관계가 없습니다.</li>
+    <li>있는 그대로 제공되며, 게임의 이용 규칙을 지키는 것은 사용자의 책임입니다.</li>
+  </ul>
+
+  <h2>하는 일</h2>
+  <ul>
+    <li>게임 설정의 <b>"MM AI 에이전트"</b> 기능(이 PC의 <code>MabinogiMobile_CLI.exe</code>)으로 <b>조회만</b> 합니다:
+      내 정보, 퀘스트, 아이템·재화, 개조 진행, 제작·개조 레시피. 30~60초 간격, 분당 약 8회입니다.</li>
+    <li>정령의 날개를 쓰는 명령(채집·제작·개조 실행)은 프로그램 코드에서 <b>거부</b>합니다. 게임 안의 행동을 대신하지 않습니다.</li>
+    <li>그 결과로 이번 주 게시판 납품 진행·재료·생활 스킬·정령의 날개 증감을 게임 창 위에 보여 줍니다.</li>
+  </ul>
+
+  <h2>게임과의 관계</h2>
+  <ul>
+    <li>게임 설정에서 "MM AI 에이전트 활성화"가 켜져 있어야 동작합니다. 게임 파일·게임 통신·게임 메모리에는 <b>손대지 않습니다</b>.</li>
+    <li>Windows에 "마비노기 모바일" <b>창의 위치·크기·앞에 있는지만</b> 물어봐 오버레이를 그 위에 맞춥니다 (읽기만).</li>
+    <li>키보드 입력을 가져가지 않습니다(캐릭터 이름을 붙일 때만 잠깐). 버튼·배지 밖 클릭은 게임으로 그대로 갑니다.</li>
+  </ul>
+
+  <h2>수집·저장하는 정보</h2>
+  <ul>
+    <li><b>외부로 보내지 않습니다.</b> 사용 통계·광고·추적이 없습니다.</li>
+    <li>이 PC의 데이터 폴더(기본: 프로그램 폴더의 <code>data\</code>)에만 남는 것:
+      <ul>
+        <li>캐릭터별 이번 주 기록(스크롤 구매·사용·보고), 보유 재료 요약, 생활 스킬 경험치, 정령의 날개 일별 증감</li>
+        <li>캐릭터는 가방 최대 무게와 직업으로 구분합니다. 이름은 직접 붙인 것만 남습니다.</li>
+        <li>같은 폴더에 다른 도구의 실행 기록(<code>*.jsonl</code>)이 있으면 읽기만 합니다.</li>
+      </ul>
+    </li>
+    <li>화면 설정(위치·투명도·알림·이 안내에 동의한 시각) — <code>%APPDATA%\mobingi-scroll-widget\</code>,
+      다른 오버레이와 겹치지 않게 하는 창 위치 — <code>%APPDATA%\mabimo-overlays\</code></li>
+  </ul>
+
+  <h2>접속하는 곳</h2>
+  <ul>
+    <li>이 PC의 게임 (<code>MabinogiMobile_CLI.exe</code>, 로컬)</li>
+    <li><code>github.com</code> (내려받기는 <code>release-assets.githubusercontent.com</code> 등) — 새 버전 확인(켤 때·6시간마다)과, 직접 설치를 고를 때의 내려받기</li>
+    <li>이 밖으로는 연결하지 않습니다.</li>
+  </ul>
+
+  <h2>업데이트</h2>
+  <ul>
+    <li>새 버전은 알려 주기만 하고, 설치는 직접 고를 때만 합니다. 받은 파일은 프로그램에 들어 있는 공개키로 <b>서명을 확인한 뒤에만</b> 설치합니다.
+      데이터 폴더·<code>node_modules</code>·아이콘은 그대로 둡니다.</li>
+  </ul>
+
+  <h2>그만 쓰려면</h2>
+  <ul>
+    <li>☰ → 종료로 끄고, 프로그램 폴더와 위의 <code>%APPDATA%</code> 폴더 두 곳을 지우면 남는 것이 없습니다(데이터 폴더를 따로 정했다면 그곳도).</li>
+  </ul>
+</main>
+<footer>
+  <span class="ver">이용 안내 1판 · 2026-11-27</span>
+  <span id="buttons"></span>
+</footer>
+<script src="notice.js"></script>
+</body>
+</html>

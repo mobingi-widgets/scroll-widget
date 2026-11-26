@@ -16,6 +16,14 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const dockLib = require('./dock');
 const updater = require('./updater');
+const consent = require('./consent');
+
+// The first-run notice (notice.html): nothing starts - no game reads, no window tracking,
+// no update check - until it is agreed to. Raise the version when the notice changes in
+// substance; everyone is asked again then.
+const NOTICE_VERSION = 1;
+const NOTICE_TITLE = '주간 납품 위젯 — 이용 안내';
+let starting = true;                   // the notice may be the only window for a while: do not quit then
 
 // ------------------------------------------------------------------- updates
 // From the GitHub releases of mobingi-widgets/scroll-widget (updater.js: signed, strictly
@@ -143,6 +151,8 @@ function saveCfg(patch) {
 // MOBINGI_WIDGET_SHOT=<png> : save screenshots after the first snapshot, then quit (layout check).
 const SHOT = process.env.MOBINGI_WIDGET_SHOT;
 let shotDone = false;
+// MOBINGI_WIDGET_USER_DATA=<dir>: run with a settings folder of its own (tests next to an installed copy)
+if (process.env.MOBINGI_WIDGET_USER_DATA) app.setPath('userData', process.env.MOBINGI_WIDGET_USER_DATA);
 
 function toPage(obj) {
   if (win && !win.isDestroyed()) win.webContents.send('feed', obj);
@@ -656,6 +666,7 @@ function buildMenu() {
       submenu: [1, 0.9, 0.8, 0.7, 0.6, 0.5].map((o) => radio(`${Math.round(o * 100)}%`, Math.abs((cfg.opacity || 1) - o) < 0.01, () => setOpacity(o))),
     },
     { type: 'separator' },
+    { label: '이용 안내 보기', click: () => consent.ask({ dir: __dirname, title: NOTICE_TITLE, view: true }) },
     { label: '종료', click: () => app.quit() },
     ...CLOSE_ITEM,
   ]);
@@ -805,10 +816,16 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', () => setShow(cfg.show === 'hidden' ? 'always' : cfg.show));
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     cfg = loadCfg();
+    if (!SHOT && (cfg.notice || 0) < NOTICE_VERSION) {
+      const ok = await consent.ask({ dir: __dirname, title: NOTICE_TITLE });
+      if (!ok) { app.quit(); return; }
+      saveCfg({ notice: NOTICE_VERSION, noticeAt: new Date().toISOString() });
+    }
     createTray();
     createWindow();
+    starting = false;                  // from here, closing the last window quits
     createToastWindow();
     createTipWindow();
     dock = dockLib.create({
@@ -867,5 +884,5 @@ if (!app.requestSingleInstanceLock()) {
       setTimeout(() => { try { feed && feed.kill(); } catch { /* gone */ } }, 1500);
     }
   });
-  app.on('window-all-closed', () => app.quit());
+  app.on('window-all-closed', () => { if (!starting && !BrowserWindow.getAllWindows().length) app.quit(); });
 }
