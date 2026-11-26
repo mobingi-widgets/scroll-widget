@@ -47,7 +47,7 @@ function create(o) {
     return {
       phase: st.phase, current: o.version, next: i.version || '', notes: i.notes || '', needFull: !!i.needFull,
       fullMb: i.full ? Math.round(i.full.size / 1e6) : 0, noticeChanged: noticeChanged(),
-      canInstall: o.canInstall(), progress: st.progress, error: st.error, tampered: st.tampered, title: o.title,
+      canInstall: st.demo || o.canInstall(), progress: st.progress, error: st.error, tampered: st.tampered, title: o.title,
     };
   }
   function send() { if (win && !win.isDestroyed()) win.webContents.send('update', model()); }
@@ -235,9 +235,46 @@ function create(o) {
     return out;
   }
 
+  // ---------------------------------------------------- the custom menu (ctxmenu.js) lines
+  function menuItems() {
+    const i = st.info;
+    const c = cfg();
+    const out = [];
+    if (i && i.available) {
+      const declined = i.notice && c.noticeDeclined === i.notice.version;
+      out.push({
+        type: 'item', id: 'upd-show', label: `업데이트 v${i.version}`, badge: declined ? 'warn' : 'dot',
+        value: declined ? '이용 안내 동의 필요' : c.skipVersion === i.version ? '건너뜀' : '',
+        tip: declined ? '바뀐 이용 안내에 동의하지 않아 지금 버전을 쓰는 중 — 눌러서 다시 보기' : '업데이트 창 열기 (변경 내용 · 설치)',
+      });
+    }
+    const when = st.at ? `${Math.max(0, Math.round((Date.now() - st.at) / 60000))}분 전` : '';
+    const state = st.error ? '확인 실패' : i && i.none ? '릴리스 없음' : i && !i.available ? `v${o.version} 최신` : `v${o.version}`;
+    out.push({
+      type: 'item', id: 'upd-check', label: st.checking ? '확인 중...' : '업데이트 확인', disabled: st.checking,
+      value: [state, when].filter(Boolean).join(' · '),
+      tip: st.error ? `업데이트 확인 실패: ${st.error}` : 'GitHub 릴리스를 지금 확인합니다',
+    });
+    out.push({ type: 'toggle', id: 'upd-auto', label: '자동 업데이트 확인', on: c.autoCheck !== false, tip: '켤 때와 6시간마다 확인 (설치는 늘 직접)' });
+    return out;
+  }
+  // -> keep the menu open?
+  function menuAct(id) {
+    if (id === 'upd-show') { show(); return false; }
+    if (id === 'upd-check') { check({ manual: true }); return false; }
+    if (id === 'upd-auto') {
+      const on = cfg().autoCheck === false;
+      o.saveCfg({ autoCheck: on });
+      if (on) start();
+      return true;
+    }
+    return false;
+  }
+
   // UPDATE_DEMO=<png prefix>: the window's steps on made-up data, one capture each (layout check)
   async function demo(prefix) {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    st.demo = true;                      // shown as an installed copy would see it
     st.info = {
       available: true, version: '9.9.0', needFull: false, full: { size: 145e6 }, notice: { version: 99 }, page: '',
       notes: '- **업데이트 창**: 다운로드 진행 막대 · 서명 확인 · 설치 후 다시 시작\n- 처음 실행 이용 안내\n- 내 직군 칩 메뉴',
@@ -264,7 +301,7 @@ function create(o) {
     }
   }
 
-  return { start, check, show, afterStart, rollback, hasPrevious, menuLines, pageState, demo, state: () => st };
+  return { start, check, show, afterStart, rollback, hasPrevious, menuLines, menuItems, menuAct, pageState, demo, state: () => st };
 }
 
 module.exports = { create };

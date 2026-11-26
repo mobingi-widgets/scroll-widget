@@ -15,6 +15,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const dockLib = require('./dock');
+const ctxLib = require('./ctxmenu');
 const updater = require('./updater');
 const consent = require('./consent');
 
@@ -107,6 +108,12 @@ const SHOT = process.env.MOBINGI_WIDGET_SHOT;
 let shotDone = false;
 // MOBINGI_WIDGET_USER_DATA=<dir>: run with a settings folder of its own (tests next to an installed copy)
 if (process.env.MOBINGI_WIDGET_USER_DATA) app.setPath('userData', process.env.MOBINGI_WIDGET_USER_DATA);
+// MOBINGI_WIDGET_DUMP=<file>: write the first snapshot there and quit (the source of a demo fixture)
+const DUMP = process.env.MOBINGI_WIDGET_DUMP;
+// MOBINGI_WIDGET_DEMO=<dir> (+ MOBINGI_WIDGET_FIXTURE=<snapshot.json>): the README screenshots from the
+// made-up docs/demo-snapshot.json - no game reads, no game window, neutral backdrop (demoShots)
+const DEMO = process.env.MOBINGI_WIDGET_DEMO;
+if (DEMO) app.setPath('userData', path.join(require('os').tmpdir(), 'mobingi-scroll-widget-demo'));
 
 function toPage(obj) {
   if (win && !win.isDestroyed()) win.webContents.send('feed', obj);
@@ -344,7 +351,7 @@ function setMode(app) {
 }
 
 function checkMode() {
-  if (SHOT) return;
+  if (SHOT || DEMO) return;
   // MOBINGI_WIDGET_FORCE_APP=1: behave as if there were no game window (to check window-app mode)
   if (game.found && !process.env.MOBINGI_WIDGET_FORCE_APP) { lostSince = 0; setMode(false); return; }
   if (!lostSince) lostSince = Date.now();
@@ -352,6 +359,7 @@ function checkMode() {
 }
 
 function raise() {
+  if (ctx && ctx.isOpen()) return;       // the menu (and its click catcher) stay on top while it is up
   // A game window activated later can still land above a topmost window, so
   // re-assert topmost and the top of the z-order without taking focus.
   if (!win || win.isDestroyed() || !win.isVisible() || appMode) return;
@@ -426,7 +434,7 @@ function updateVisibility() {
   else if (appMode) visible = true;
   else if (cfg.show === 'always') visible = true;
   else visible = !game.found ? true : (!game.minimized && (game.front === 'game' || game.front === 'self'));
-  if (SHOT) visible = true;
+  if (SHOT || DEMO) visible = true;
   if (visible && !win.isVisible()) win.showInactive();
   if (!visible && win.isVisible()) win.hide();
   if (visible) raise();
@@ -498,6 +506,7 @@ function startFeed() {
       toPage(obj);
       pushProblems();
       if (SHOT && !shotDone && obj.type === 'snapshot') takeShots();
+      if (DUMP && obj.type === 'snapshot') { fs.writeFileSync(DUMP, JSON.stringify(obj)); app.quit(); }
     }
   });
   feed.stderr.setEncoding('utf8');
@@ -510,6 +519,48 @@ function startFeed() {
     pushProblems();
     setTimeout(startFeed, 5000);
   });
+}
+
+// The README screenshots (MOBINGI_WIDGET_DEMO=<dir>): docs/demo-snapshot.json (or
+// MOBINGI_WIDGET_FIXTURE) on a neutral backdrop - no game reads, no game window. That snapshot is
+// made up through and through: names, job, bag weight, wings, skill levels, stock - an account's
+// real numbers identify it. The repo is public: look at every image before committing.
+async function demoShots() {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const save = async (w, name) => fs.writeFileSync(path.join(DEMO, `${name}.png`), (await w.webContents.capturePage()).toPNG());
+  const js = (code) => win.webContents.executeJavaScript(code);
+  fs.mkdirSync(DEMO, { recursive: true });
+  const fixture = process.env.MOBINGI_WIDGET_FIXTURE || path.join(__dirname, 'docs', 'demo-snapshot.json');
+  const snap = JSON.parse(fs.readFileSync(fixture, 'utf8'));
+  await js("document.body.classList.add('demo')");
+  saveCfg({ width: DEFAULTS.width + 32, align: 'left' });   // the demo's padding (marks) comes on top
+  place();
+  toPage({ type: 'window', expanded: false, align: 'left' });
+  toPage({ type: 'mode', app: false });
+  toPage(snap);
+  await wait(1200);
+  await js("window.__marks && window.__marks([['#toggle', 1, 'top'], ['#charpill', 2, 'top'], ['#menu', 3, 'top'], ['#title', 4], ['#chips-status', 5], ['#chips-towns', 6], ['#chips-skills', 7]])");
+  await wait(400);
+  await save(win, 'band');
+  await js('window.__marks && window.__marks([])');
+  for (const t of ['items', 'chars', 'mats']) {
+    await js(`window.__setExpanded(true); document.querySelector('[data-tab=${t}]').click()`);
+    await wait(700);
+    await save(win, `tab-${t}`);
+  }
+  await js('window.__setExpanded(false)');
+  await wait(500);
+  if (await js("window.__tipTest('#chips-status .tipm')")) { await wait(1600); await save(tipWin, 'tooltip'); }
+  tipAnchor = null;
+  placeTip();
+  Object.assign(sync, { week: snap.week || sync.week, status: 'ok', t: Date.now() / 1000 - 20, char: snap.char || null });
+  popupMenu();
+  await wait(1200);
+  await save(ctx.window(), 'menu');
+  ctx.close();
+  process.env.NOTICE_SHOT = path.join(DEMO, 'notice.png');
+  await consent.ask({ dir: __dirname, title: NOTICE_TITLE });
+  app.quit();
 }
 
 function takeShots() {
@@ -548,92 +599,104 @@ function toFeed(obj) {
 
 // --------------------------------------------------------------------- menu
 
-function syncLines() {
+// One definition (menuItems) for both menus: the overlay's own menu (ctxmenu.js - focus stays
+// with the game, a click outside only closes it) and the tray's native one (ctxmenu.toNative).
+// Least text: states as grey values on the right, choices as one-line segments, explanations
+// in the hint line at the bottom.
+function menuItems() {
+  const items = [];
+  for (const p of problems()) items.push({ type: 'info', label: `⚠ ${p}`, warn: true });
   const label = { ok: '연결됨', retry: '재시도 중', offline: '게임 연결 끊김', loading: '읽는 중' }[sync.status] || sync.status;
-  const lines = [];
-  for (const p of problems()) lines.push(`⚠ ${p}`);
-  lines.push(`${sync.feedDead ? '⚠ 피드 재시작 중' : (sync.status === 'ok' ? '● ' : '○ ') + label}` + (sync.t ? ` · ${ago(sync.t)} 전 갱신` : ''));
+  items.push({ type: 'title', label: '주간 납품', value: sync.week ? `${sync.week} 주` : '' });
+  items.push({ type: 'info', label: sync.feedDead ? '⚠ 피드 재시작 중' : `${sync.status === 'ok' ? '●' : '○'} ${label}`, value: sync.t ? `${ago(sync.t)} 전 갱신` : '' });
+  if (sync.char) items.push({ type: 'info', label: '캐릭터', value: `${sync.char.name} · ${sync.char.job || '?'} · 가방 ${sync.char.weight}` });
   if (game.found) {
     const [, , w, h] = game.rect || [0, 0, 0, 0];
-    const front = game.minimized ? '최소화됨' : game.front === 'game' ? '앞에 있음' : '뒤에 있음';
-    lines.push(`게임 창 ${w}×${h} · ${front}`);
+    items.push({ type: 'info', label: '게임 창', value: `${w}×${h} · ${game.minimized ? '최소화' : game.front === 'game' ? '앞' : '뒤'}` });
   } else {
-    lines.push(appMode ? '게임 창 없음 → 창 모드 (게임이 켜지면 오버레이로)' : '게임 창 찾는 중');
+    items.push({ type: 'info', label: '게임 창', value: appMode ? '없음 → 창 모드' : '찾는 중' });
   }
-  if (sync.char) lines.push(`캐릭터 ${sync.char.name} · ${sync.char.job || '?'} · 가방 ${sync.char.weight}`);
-  if (sync.week) lines.push(`${sync.week} 주` + (sync.recordAt ? ` · 기록 저장 ${sync.recordAt.slice(5, 16)}${sync.recordBy ? ` (${sync.recordBy})` : ''}` : ''));
-  return lines;
+  if (sync.recordAt) items.push({ type: 'info', label: '기록 저장', value: `${sync.recordAt.slice(5, 16)}${sync.recordBy ? ` (${sync.recordBy})` : ''}` });
+  items.push({ type: 'sep' });
+  items.push(...(uui ? uui.menuItems() : []));
+  items.push({ type: 'sep' });
+  items.push({ type: 'item', id: 'refresh', label: '지금 새로고침', tip: '게임에서 지금 다시 읽습니다 (무료 조회)' });
+  items.push({ type: 'item', id: 'recipes', label: '레시피 다시 읽기', tip: '제작 레시피를 다시 읽습니다 (보통 30분마다)' });
+  items.push({ type: 'sep' });
+  if (appMode) items.push({ type: 'item', id: 'minimize', label: '창 최소화' });
+  items.push({ type: 'item', id: 'reset-pos', label: '위치 초기화', tip: '옮기기는 ☰를 끌어서 (가장자리에 붙고 다른 오버레이는 피함)' });
+  items.push({ type: 'segment', id: 'align', label: '정렬', options: [['left', '왼쪽'], ['right', '오른쪽']].map(([id, l]) => ({ id, label: l, on: cfg.align === id })) });
+  items.push({
+    type: 'segment', id: 'show', label: '표시', tip: '숨기면 트레이 아이콘으로 다시 표시',
+    options: [['always', '항상'], ['game', '게임 앞'], ['hidden', '숨김']].map(([id, l]) => ({ id, label: l, on: cfg.show === id })),
+  });
+  items.push({
+    type: 'segment', id: 'wings', label: '날개 하루', tip: '정령의 날개 일별 증감의 하루 경계 — 게임 일일 초기화 시각 (미정 = 자정)',
+    options: [[null, '미정'], ['05:00', '5시'], ['06:00', '6시'], ['07:00', '7시'], ['09:00', '9시']].map(([id, l]) => ({ id: id || '', label: l, on: (sync.wingsReset || null) === id })),
+  });
+  items.push({ type: 'toggle', id: 'toast', label: '알림 (토스트)', on: cfg.toast.on, tip: '게임 창 위에 뜨는 알림 켜기·끄기' });
+  items.push({
+    type: 'segment', id: 'toast-pos', label: '알림 위치', disabled: !cfg.toast.on,
+    options: [['top', '위'], ['center', '가운데'], ['bottom', '아래']].map(([id, l]) => ({ id, label: l, on: cfg.toast.pos === id })),
+  });
+  items.push({
+    type: 'segment', id: 'toast-min', label: '알림 등급', tip: '모두 · 주의 이상 · 행동이 필요할 때만',
+    options: [['info', '모두'], ['warn', '주의'], ['action', '행동']].map(([id, l]) => ({ id, label: l, on: cfg.toast.min === id })),
+  });
+  items.push({ type: 'item', id: 'toast-test', label: '시험 알림 띄우기', disabled: !cfg.toast.on });
+  items.push({
+    type: 'segment', id: 'opacity', label: '투명도',
+    options: [1, 0.9, 0.8, 0.7, 0.6].map((o) => ({ id: String(o), label: String(Math.round(o * 100)), on: Math.abs((cfg.opacity || 1) - o) < 0.01 })),
+  });
+  items.push({ type: 'sep' });
+  items.push({ type: 'item', id: 'notice', label: '이용 안내 보기' });
+  items.push({ type: 'item', id: 'quit', label: '종료' });
+  return items;
 }
 
-function buildMenu() {
-  const radio = (label, checked, click) => ({ label, type: 'radio', checked, click });
-  return Menu.buildFromTemplate([
-    ...syncLines().map((label) => ({ label, enabled: false })),
-    { type: 'separator' },
-    ...(uui ? uui.menuLines() : []),
-    { type: 'separator' },
-    { label: '지금 새로고침', click: () => toFeed({ cmd: 'refresh' }) },
-    { label: '레시피 다시 읽기', click: () => toFeed({ cmd: 'recipes' }) },
-    { type: 'separator' },
-    ...(appMode ? [{ label: '창 최소화', click: () => win && win.minimize() }] : []),
-    { label: '위치 초기화 (옮기기: ☰를 끌어서)', click: () => { saveCfg({ ...POS[cfg.align] }); place(); } },
-    {
-      label: '정렬',
-      submenu: [
-        radio('게임 창 왼쪽', cfg.align === 'left', () => setAlign('left')),
-        radio('게임 창 오른쪽', cfg.align === 'right', () => setAlign('right')),
-      ],
-    },
-    {
-      label: '표시',
-      submenu: [
-        radio('항상 위', cfg.show === 'always', () => setShow('always')),
-        radio('게임이 앞에 있을 때만', cfg.show === 'game', () => setShow('game')),
-        radio('숨기기 (트레이 아이콘으로 다시 표시)', cfg.show === 'hidden', () => setShow('hidden')),
-      ],
-    },
-    {
-      label: `날개 하루 기준: ${sync.wingsReset || '미정 (자정)'}`,
-      submenu: [null, '00:00', '05:00', '06:00', '07:00', '09:00'].map((v) => radio(
-        v ? `${v} (게임 일일 초기화)` : '미정 — 자정으로 계산', (sync.wingsReset || null) === v,
-        () => { toFeed({ cmd: 'wings_reset', value: v }); toFeed({ cmd: 'refresh' }); })),
-    },
-    {
-      label: '알림 (게임 창 위 토스트)',
-      submenu: [
-        { label: '알림 켜기', type: 'checkbox', checked: cfg.toast.on, click: (mi) => setToast({ on: mi.checked }) },
-        { type: 'separator' },
-        radio('위쪽 가운데', cfg.toast.pos === 'top', () => setToast({ pos: 'top' })),
-        radio('가운데', cfg.toast.pos === 'center', () => setToast({ pos: 'center' })),
-        radio('아래쪽 가운데', cfg.toast.pos === 'bottom', () => setToast({ pos: 'bottom' })),
-        { type: 'separator' },
-        radio('모든 알림', cfg.toast.min === 'info', () => setToast({ min: 'info' })),
-        radio('주의 이상만', cfg.toast.min === 'warn', () => setToast({ min: 'warn' })),
-        radio('행동 필요만', cfg.toast.min === 'action', () => setToast({ min: 'action' })),
-        { type: 'separator' },
-        { label: '시험 알림 띄우기', click: () => notify({ text: '시험 알림 — 여기에 뜹니다', level: 'info', by: '☰ 메뉴' }) },
-      ],
-    },
-    {
-      label: '투명도',
-      submenu: [1, 0.9, 0.8, 0.7, 0.6, 0.5].map((o) => radio(`${Math.round(o * 100)}%`, Math.abs((cfg.opacity || 1) - o) < 0.01, () => setOpacity(o))),
-    },
-    { type: 'separator' },
-    { label: '이용 안내 보기', click: () => consent.ask({ dir: __dirname, title: NOTICE_TITLE, view: true }) },
-    { label: '종료', click: () => app.quit() },
-    ...CLOSE_ITEM,
-  ]);
+// -> keep the menu open (the line changed in place)?
+function menuAct(id, opt) {
+  if (id.startsWith('upd-')) return uui ? uui.menuAct(id) : false;
+  switch (id) {
+    case 'refresh': toFeed({ cmd: 'refresh' }); return false;
+    case 'recipes': toFeed({ cmd: 'recipes' }); return false;
+    case 'minimize': if (win) win.minimize(); return false;
+    case 'reset-pos': saveCfg({ ...POS[cfg.align] }); place(); return false;
+    case 'align': setAlign(opt); return true;
+    case 'show': setShow(opt); return opt !== 'hidden';
+    case 'wings':
+      sync.wingsReset = opt || null;
+      toFeed({ cmd: 'wings_reset', value: opt || null });
+      toFeed({ cmd: 'refresh' });
+      return true;
+    case 'toast': setToast({ on: !cfg.toast.on }); return true;
+    case 'toast-pos': setToast({ pos: opt }); return true;
+    case 'toast-min': setToast({ min: opt }); return true;
+    case 'toast-test': notify({ text: '시험 알림 — 여기에 뜹니다', level: 'info', by: '☰ 메뉴' }); return false;
+    case 'opacity': setOpacity(Number(opt)); return true;
+    case 'notice': consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: 'view' }); return false;
+    case 'quit': app.quit(); return false;
+    default: return false;
+  }
 }
 
-// Every menu ends in "닫기", which does nothing (user 2026-11-27: closing a menu by
-// clicking near it ran an item). While a menu is up, and 300 ms after, the page ignores
-// clicks, so the click that closes it cannot set off what is underneath. Esc closes too.
-const CLOSE_ITEM = [{ type: 'separator' }, { label: '닫기' }];
+function buildMenu() {                  // the tray's native menu, from the same items
+  return ctxLib.toNative(menuItems(), menuAct);
+}
 
+// While a menu is up, and 300 ms after, the page ignores clicks (renderer.js blocked()).
+let ctx = null;
 function popupMenu() {
   if (!win || win.isDestroyed()) return;
+  tipAnchor = null;
+  placeTip();
+  if (!ctx) ctx = ctxLib.create({ dir: __dirname });
+  const p = screen.getCursorScreenPoint();
   toPage({ type: 'menu', open: true });
-  buildMenu().popup({ window: win, callback: () => toPage({ type: 'menu', open: false }) });
+  ctx.open({
+    anchor: { x: p.x, y: p.y + 6, right: cfg.align === 'right', top: p.y - 6 }, zoom, build: menuItems, act: menuAct,
+    onClose: () => toPage({ type: 'menu', open: false }),
+  });
 }
 
 function setAlign(a) {
@@ -776,11 +839,13 @@ if (!app.requestSingleInstanceLock()) {
     cfg = loadCfg();
     uui = makeUpdateUi();
     const noticeV = consent.noticeVersion(__dirname);
-    if (!SHOT && (cfg.notice || 0) < noticeV) {
+    if (!SHOT && !DEMO && (cfg.notice || 0) < noticeV) {
       // first run, or this version's notice is newer than the agreed one (e.g. files put over
       // by hand): ask before anything starts; with the old version kept aside, offer going back
       const guard = !fs.existsSync(path.join(__dirname, '.git')) && uui.hasPrevious();
-      const answer = await consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: guard ? 'guard' : 'ask' });
+      // started fine (an update waiting on update-ok.json must not roll back while the notice is read)
+      const onShown = () => updater.markHealthy(path.join(app.getPath('userData'), 'update-ok.json'), VERSION);
+      const answer = await consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: guard ? 'guard' : 'ask', onShown });
       if (answer === 'rollback') { uui.rollback(); return; }
       if (answer !== true) { app.quit(); return; }
       saveCfg({ notice: noticeV, noticeAt: new Date().toISOString(), noticeDeclined: null });
@@ -798,6 +863,7 @@ if (!app.requestSingleInstanceLock()) {
       onDrop,
     });
     setInterval(() => { if (win && !win.isDestroyed() && !appMode && win.isVisible()) dock.publish(win.getBounds()); }, 5000);
+    if (DEMO) { setTimeout(demoShots, 1500); return; }
     startFeed();
     if (!SHOT) {
       uui.start();

@@ -1,0 +1,1402 @@
+{
+ "type": "snapshot",
+ "t": 1795752000.0,
+ "week": "2026-11-26",
+ "shared_note": null,
+ "record_updated": "2026-11-27 12:00:00",
+ "record_by": "widget",
+ "char": {
+  "key": "1650|?",
+  "name": "캐릭터A",
+  "current": true,
+  "job": "검술사",
+  "weight": 1650,
+  "combat": 48210,
+  "provisional": false,
+  "named": true,
+  "candidates": [],
+  "bought": 42,
+  "want": 42,
+  "report_want": 14,
+  "reported": 14,
+  "used": 42,
+  "missing": [],
+  "last_seen": "2026-11-27 12:00:00",
+  "first_seen": "2026-11-26",
+  "towns": [
+   {
+    "town": "티르코네일",
+    "done": 2,
+    "total": 2,
+    "left": [],
+    "bought": 6,
+    "used": 6,
+    "want": 6
+   },
+   {
+    "town": "던바튼",
+    "done": 3,
+    "total": 3,
+    "left": [],
+    "bought": 9,
+    "used": 9,
+    "want": 9
+   },
+   {
+    "town": "콜헨",
+    "done": 3,
+    "total": 3,
+    "left": [],
+    "bought": 9,
+    "used": 9,
+    "want": 9
+   },
+   {
+    "town": "반호르",
+    "done": 3,
+    "total": 3,
+    "left": [],
+    "bought": 9,
+    "used": 9,
+    "want": 9
+   },
+   {
+    "town": "이멘마하",
+    "done": 3,
+    "total": 3,
+    "left": [],
+    "bought": 9,
+    "used": 9,
+    "want": 9
+   }
+  ],
+  "steps": 14,
+  "steps_total": 14,
+  "edits": 2
+ },
+ "chars": [
+  {
+   "key": "1650|?",
+   "name": "캐릭터A",
+   "current": true,
+   "job": "검술사",
+   "weight": 1650,
+   "combat": 48210,
+   "provisional": false,
+   "named": true,
+   "candidates": [],
+   "bought": 42,
+   "want": 42,
+   "report_want": 14,
+   "reported": 14,
+   "used": 42,
+   "missing": [],
+   "last_seen": "2026-11-27 12:00:00",
+   "first_seen": "2026-11-26",
+   "towns": [
+    {
+     "town": "티르코네일",
+     "done": 2,
+     "total": 2,
+     "left": [],
+     "bought": 6,
+     "used": 6,
+     "want": 6
+    },
+    {
+     "town": "던바튼",
+     "done": 3,
+     "total": 3,
+     "left": [],
+     "bought": 9,
+     "used": 9,
+     "want": 9
+    },
+    {
+     "town": "콜헨",
+     "done": 3,
+     "total": 3,
+     "left": [],
+     "bought": 9,
+     "used": 9,
+     "want": 9
+    },
+    {
+     "town": "반호르",
+     "done": 3,
+     "total": 3,
+     "left": [],
+     "bought": 9,
+     "used": 9,
+     "want": 9
+    },
+    {
+     "town": "이멘마하",
+     "done": 3,
+     "total": 3,
+     "left": [],
+     "bought": 9,
+     "used": 9,
+     "want": 9
+    }
+   ],
+   "steps": 14,
+   "steps_total": 14,
+   "edits": 2
+  },
+  {
+   "key": "1280|음유시인",
+   "name": "캐릭터B",
+   "current": false,
+   "job": "음유시인",
+   "weight": 1280,
+   "combat": 39876,
+   "provisional": false,
+   "named": true,
+   "candidates": [],
+   "bought": 42,
+   "want": 42,
+   "report_want": 14,
+   "reported": 0,
+   "used": 42,
+   "missing": [],
+   "last_seen": "2026-11-27 11:30:00",
+   "first_seen": "2026-11-26",
+   "towns": [
+    {
+     "town": "티르코네일",
+     "done": 2,
+     "total": 2,
+     "left": [],
+     "bought": 6,
+     "used": 6,
+     "want": 6
+    },
+    {
+     "town": "던바튼",
+     "done": 3,
+     "total": 3,
+     "left": [],
+     "bought": 9,
+     "used": 9,
+     "want": 9
+    },
+    {
+     "town": "콜헨",
+     "done": 3,
+     "total": 3,
+     "left": [],
+     "bought": 9,
+     "used": 9,
+     "want": 9
+    },
+    {
+     "town": "반호르",
+     "done": 3,
+     "total": 3,
+     "left": [],
+     "bought": 9,
+     "used": 9,
+     "want": 9
+    },
+    {
+     "town": "이멘마하",
+     "done": 3,
+     "total": 3,
+     "left": [],
+     "bought": 9,
+     "used": 9,
+     "want": 9
+    }
+   ],
+   "steps": 0,
+   "steps_total": 14,
+   "edits": 0
+  }
+ ],
+ "progress": {
+  "reported": 14,
+  "total": 14,
+  "bought": 42,
+  "used": 42,
+  "want": 42,
+  "report_ready": 0
+ },
+ "towns": [
+  {
+   "town": "티르코네일",
+   "done": 2,
+   "total": 2,
+   "left": [],
+   "bought": 6,
+   "used": 6,
+   "want": 6
+  },
+  {
+   "town": "던바튼",
+   "done": 3,
+   "total": 3,
+   "left": [],
+   "bought": 9,
+   "used": 9,
+   "want": 9
+  },
+  {
+   "town": "콜헨",
+   "done": 3,
+   "total": 3,
+   "left": [],
+   "bought": 9,
+   "used": 9,
+   "want": 9
+  },
+  {
+   "town": "반호르",
+   "done": 3,
+   "total": 3,
+   "left": [],
+   "bought": 9,
+   "used": 9,
+   "want": 9
+  },
+  {
+   "town": "이멘마하",
+   "done": 3,
+   "total": 3,
+   "left": [],
+   "bought": 9,
+   "used": 9,
+   "want": 9
+  }
+ ],
+ "overall": {
+  "done": 14,
+  "total": 84,
+  "target": 6,
+  "seen": 2,
+  "bought": 84,
+  "used": 84,
+  "reported": 14,
+  "want": 252,
+  "report_want": 84,
+  "quests_per_item": 1,
+  "quests_confirmed": true
+ },
+ "loot": [
+  {
+   "item": "협곡의 마나석",
+   "runs": 5,
+   "avg": 5.2,
+   "min": 4,
+   "max": 7,
+   "total": 26,
+   "spent_avg": {
+    "은동전": 18.0
+   },
+   "have": 3,
+   "need": 0,
+   "last": "2026-11-27 10:20:00"
+  }
+ ],
+ "catalog": {
+  "skills": {
+   "대장 기술": {
+    "abbr": "대장",
+    "icon": "blacksmith"
+   },
+   "목공": {
+    "abbr": "목공",
+    "icon": "carpentry"
+   },
+   "매직 크래프트": {
+    "abbr": "매직",
+    "icon": "magic"
+   },
+   "중갑 제작": {
+    "abbr": "중갑",
+    "icon": "heavy"
+   },
+   "경갑 제작": {
+    "abbr": "경갑",
+    "icon": "light"
+   },
+   "천옷 제작": {
+    "abbr": "천옷",
+    "icon": "cloth"
+   },
+   "핸디크래프트": {
+    "abbr": "핸디",
+    "icon": "handicraft"
+   }
+  },
+  "towns": {
+   "티르코네일": "티르",
+   "던바튼": "던바",
+   "콜헨": "콜헨",
+   "반호르": "반호",
+   "이멘마하": "이멘"
+  },
+  "per_week": 3
+ },
+ "version": "1.2.0",
+ "skills": [
+  {
+   "name": "대장 기술",
+   "level": 17,
+   "exp": 3120,
+   "max": 6210,
+   "top": 37,
+   "gain": 0,
+   "levels_up": 0
+  },
+  {
+   "name": "목공",
+   "level": 22,
+   "exp": 5480,
+   "max": 11090,
+   "top": 37,
+   "gain": 0,
+   "levels_up": 0
+  },
+  {
+   "name": "매직 크래프트",
+   "level": 19,
+   "exp": 2210,
+   "max": 7300,
+   "top": 37,
+   "gain": 0,
+   "levels_up": 0
+  },
+  {
+   "name": "중갑 제작",
+   "level": 24,
+   "exp": 8030,
+   "max": 14800,
+   "top": 37,
+   "gain": 0,
+   "levels_up": 0
+  },
+  {
+   "name": "경갑 제작",
+   "level": 15,
+   "exp": 1890,
+   "max": 4950,
+   "top": 37,
+   "gain": 0,
+   "levels_up": 0
+  },
+  {
+   "name": "천옷 제작",
+   "level": 27,
+   "exp": 9940,
+   "max": 21300,
+   "top": 37,
+   "gain": 0,
+   "levels_up": 0
+  },
+  {
+   "name": "핸디크래프트",
+   "level": 33,
+   "exp": 12500,
+   "max": 28900,
+   "top": 37,
+   "gain": 640,
+   "levels_up": 0
+  }
+ ],
+ "items": [
+  {
+   "skill": "대장 기술",
+   "item": "론 엣지소드S",
+   "town": "반호르",
+   "goal": 6,
+   "visible": false,
+   "count": null,
+   "bought": 3,
+   "used": 3,
+   "reported": 1,
+   "quests": 1,
+   "left": 0,
+   "scrolls_in_bag": 0,
+   "state": "done",
+   "ratio": 1,
+   "quests_possible": null,
+   "materials": [],
+   "recipe_missing": false,
+   "edited": {}
+  },
+  {
+   "skill": "대장 기술",
+   "item": "크레센트 엣지소드",
+   "town": "던바튼",
+   "goal": 6,
+   "visible": false,
+   "count": null,
+   "bought": 3,
+   "used": 3,
+   "reported": 1,
+   "quests": 1,
+   "left": 0,
+   "scrolls_in_bag": 0,
+   "state": "done",
+   "ratio": 1,
+   "quests_possible": null,
+   "materials": [],
+   "recipe_missing": false,
+   "edited": {}
+  },
+  {
+   "skill": "목공",
+   "item": "라이트 크로스보우S",
+   "town": "반호르",
+   "goal": 6,
+   "visible": false,
+   "count": null,
+   "bought": 3,
+   "used": 3,
+   "reported": 1,
+   "quests": 1,
+   "left": 0,
+   "scrolls_in_bag": 0,
+   "state": "done",
+   "ratio": 1,
+   "quests_possible": null,
+   "materials": [],
+   "recipe_missing": false,
+   "edited": {}
+  },
+  {
+   "skill": "목공",
+   "item": "그랜드 크로스보우",
+   "town": "던바튼",
+   "goal": 6,
+   "visible": false,
+   "count": null,
+   "bought": 3,
+   "used": 3,
+   "reported": 1,
+   "quests": 1,
+   "left": 0,
+   "scrolls_in_bag": 0,
+   "state": "done",
+   "ratio": 1,
+   "quests_possible": null,
+   "materials": [],
+   "recipe_missing": false,
+   "edited": {}
+  },
+  {
+   "skill": "매직 크래프트",
+   "item": "로터스 힐링 완드",
+   "town": "던바튼",
+   "goal": 6,
+   "visible": false,
+   "count": null,
+   "bought": 3,
+   "used": 3,
+   "reported": 1,
+   "quests": 1,
+   "left": 0,
+   "scrolls_in_bag": 0,
+   "state": "done",
+   "ratio": 1,
+   "quests_possible": null,
+   "materials": [],
+   "recipe_missing": false,
+   "edited": {}
+  },
+  {
+   "skill": "매직 크래프트",
+   "item": "마블 힐링 완드S",
+   "town": "반호르",
+   "goal": 6,
+   "visible": false,
+   "count": null,
+   "bought": 3,
+   "used": 3,
+   "reported": 1,
+   "quests": 1,
+   "left": 0,
+   "scrolls_in_bag": 0,
+   "state": "done",
+   "ratio": 1,
+   "quests_possible": null,
+   "materials": [],
+   "recipe_missing": false,
+   "edited": {}
+  },
+  {
+   "skill": "중갑 제작",
+   "item": "사슬 갑옷 신발",
+   "town": "콜헨",
+   "goal": 6,
+   "visible": false,
+   "count": null,
+   "bought": 3,
+   "used": 3,
+   "reported": 1,
+   "quests": 1,
+   "left": 0,
+   "scrolls_in_bag": 0,
+   "state": "done",
+   "ratio": 1,
+   "quests_possible": null,
+   "materials": [],
+   "recipe_missing": false,
+   "edited": {}
+  },
+  {
+   "skill": "중갑 제작",
+   "item": "비늘 갑옷 신발S",
+   "town": "이멘마하",
+   "goal": 6,
+   "visible": false,
+   "count": null,
+   "bought": 3,
+   "used": 3,
+   "reported": 1,
+   "quests": 1,
+   "left": 0,
+   "scrolls_in_bag": 0,
+   "state": "done",
+   "ratio": 1,
+   "quests_possible": null,
+   "materials": [],
+   "recipe_missing": false,
+   "edited": {}
+  },
+  {
+   "skill": "경갑 제작",
+   "item": "두꺼운 가죽 갑옷 신발",
+   "town": "콜헨",
+   "goal": 6,
+   "visible": false,
+   "count": null,
+   "bought": 3,
+   "used": 3,
+   "reported": 1,
+   "quests": 1,
+   "left": 0,
+   "scrolls_in_bag": 0,
+   "state": "done",
+   "ratio": 1,
+   "quests_possible": null,
+   "materials": [],
+   "recipe_missing": false,
+   "edited": {}
+  },
+  {
+   "skill": "경갑 제작",
+   "item": "가죽 갑옷 신발S",
+   "town": "이멘마하",
+   "goal": 6,
+   "visible": false,
+   "count": null,
+   "bought": 3,
+   "used": 3,
+   "reported": 1,
+   "quests": 1,
+   "left": 0,
+   "scrolls_in_bag": 0,
+   "state": "done",
+   "ratio": 1,
+   "quests_possible": null,
+   "materials": [],
+   "recipe_missing": false,
+   "edited": {}
+  },
+  {
+   "skill": "천옷 제작",
+   "item": "두꺼운 전투복 신발",
+   "town": "콜헨",
+   "goal": 6,
+   "visible": false,
+   "count": null,
+   "bought": 3,
+   "used": 3,
+   "reported": 1,
+   "quests": 1,
+   "left": 0,
+   "scrolls_in_bag": 0,
+   "state": "done",
+   "ratio": 1,
+   "quests_possible": null,
+   "materials": [],
+   "recipe_missing": false,
+   "edited": {}
+  },
+  {
+   "skill": "천옷 제작",
+   "item": "전투복 신발S",
+   "town": "이멘마하",
+   "goal": 6,
+   "visible": false,
+   "count": null,
+   "bought": 3,
+   "used": 3,
+   "reported": 1,
+   "quests": 1,
+   "left": 0,
+   "scrolls_in_bag": 0,
+   "state": "done",
+   "ratio": 1,
+   "quests_possible": null,
+   "materials": [],
+   "recipe_missing": false,
+   "edited": {}
+  },
+  {
+   "skill": "핸디크래프트",
+   "item": "전문 캠프파이어 키트",
+   "town": "티르코네일",
+   "goal": 9,
+   "visible": false,
+   "count": 12,
+   "bought": 3,
+   "used": 3,
+   "reported": 1,
+   "quests": 1,
+   "left": 0,
+   "scrolls_in_bag": 0,
+   "state": "done",
+   "ratio": 1,
+   "quests_possible": null,
+   "materials": [],
+   "recipe_missing": false,
+   "edited": {}
+  },
+  {
+   "skill": "핸디크래프트",
+   "item": "마법 유탄 부품",
+   "town": "티르코네일",
+   "goal": 30,
+   "visible": false,
+   "count": 160,
+   "bought": 3,
+   "used": 3,
+   "reported": 1,
+   "quests": 1,
+   "left": 0,
+   "scrolls_in_bag": 0,
+   "state": "done",
+   "ratio": 1,
+   "quests_possible": null,
+   "materials": [],
+   "recipe_missing": false,
+   "edited": {}
+  }
+ ],
+ "shared_materials": [],
+ "stray_scrolls": {},
+ "all_materials": {
+  "rows": [
+   {
+    "name": "나뭇가지",
+    "level": 0,
+    "need": 225,
+    "need_main": 225,
+    "need_alt": 0,
+    "direct": 225,
+    "from_parents": {},
+    "account": 10,
+    "main": 0,
+    "incoming": 0,
+    "move": 0,
+    "short": 215,
+    "alter_runs": 0,
+    "alter_known": false,
+    "alter_secs": null,
+    "facility": null,
+    "users": [
+     "전문 캠프파이어 키트"
+    ],
+    "not_storable": false,
+    "hint": "상급 통나무+ 채집 부산물",
+    "unsure": false
+   },
+   {
+    "name": "돌멩이",
+    "level": 0,
+    "need": 450,
+    "need_main": 450,
+    "need_alt": 0,
+    "direct": 450,
+    "from_parents": {},
+    "account": 0,
+    "main": 0,
+    "incoming": 0,
+    "move": 0,
+    "short": 450,
+    "alter_runs": 0,
+    "alter_known": false,
+    "alter_secs": null,
+    "facility": null,
+    "users": [
+     "전문 캠프파이어 키트"
+    ],
+    "not_storable": false,
+    "hint": "석탄·철 광석·동 광석 채집 부산물",
+    "unsure": false
+   },
+   {
+    "name": "상급 가죽",
+    "level": 0,
+    "need": 90,
+    "need_main": 0,
+    "need_alt": 90,
+    "direct": 90,
+    "from_parents": {},
+    "account": 0,
+    "main": 0,
+    "incoming": 8,
+    "move": 8,
+    "short": 82,
+    "alter_runs": 27,
+    "alter_known": true,
+    "alter_secs": 81000,
+    "facility": "가죽 가공 시설",
+    "users": [
+     "가죽 갑옷 신발S"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "상급 목재",
+    "level": 0,
+    "need": 180,
+    "need_main": 0,
+    "need_alt": 180,
+    "direct": 180,
+    "from_parents": {},
+    "account": 0,
+    "main": 0,
+    "incoming": 4,
+    "move": 4,
+    "short": 176,
+    "alter_runs": 60,
+    "alter_known": true,
+    "alter_secs": 180000,
+    "facility": "목재 가공 시설",
+    "users": [
+     "라이트 크로스보우S",
+     "마블 힐링 완드S"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "상급 옷감",
+    "level": 0,
+    "need": 90,
+    "need_main": 0,
+    "need_alt": 90,
+    "direct": 90,
+    "from_parents": {},
+    "account": 20,
+    "main": 0,
+    "incoming": 4,
+    "move": 4,
+    "short": 66,
+    "alter_runs": 22,
+    "alter_known": true,
+    "alter_secs": null,
+    "facility": "옷감 가공 시설",
+    "users": [
+     "전투복 신발S"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "상급 통나무+",
+    "level": 0,
+    "need": 180,
+    "need_main": 180,
+    "need_alt": 0,
+    "direct": 180,
+    "from_parents": {},
+    "account": 133,
+    "main": 95,
+    "incoming": 0,
+    "move": 0,
+    "short": 0,
+    "alter_runs": 0,
+    "alter_known": false,
+    "alter_secs": null,
+    "facility": null,
+    "users": [
+     "전문 캠프파이어 키트"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "합금강괴",
+    "level": 0,
+    "need": 180,
+    "need_main": 0,
+    "need_alt": 180,
+    "direct": 180,
+    "from_parents": {},
+    "account": 140,
+    "main": 0,
+    "incoming": 0,
+    "move": 0,
+    "short": 40,
+    "alter_runs": 13,
+    "alter_known": true,
+    "alter_secs": 39000,
+    "facility": "금속 가공 시설",
+    "users": [
+     "론 엣지소드S",
+     "비늘 갑옷 신발S"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "가죽+",
+    "level": 1,
+    "need": 360,
+    "need_main": 60,
+    "need_alt": 300,
+    "direct": 300,
+    "from_parents": {
+     "상급 가죽": 60
+    },
+    "account": 0,
+    "main": 202,
+    "incoming": 0,
+    "move": 0,
+    "short": 158,
+    "alter_runs": 0,
+    "alter_known": false,
+    "alter_secs": null,
+    "facility": null,
+    "users": [
+     "두꺼운 가죽 갑옷 신발",
+     "론 엣지소드S",
+     "비늘 갑옷 신발S",
+     "사슬 갑옷 신발",
+     "상급 가죽",
+     "크레센트 엣지소드"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "강철괴",
+    "level": 1,
+    "need": 762,
+    "need_main": 162,
+    "need_alt": 600,
+    "direct": 600,
+    "from_parents": {
+     "합금강괴": 162
+    },
+    "account": 0,
+    "main": 0,
+    "incoming": 11,
+    "move": 0,
+    "short": 751,
+    "alter_runs": 251,
+    "alter_known": true,
+    "alter_secs": 75300,
+    "facility": "금속 가공 시설",
+    "users": [
+     "가죽 갑옷 신발S",
+     "그랜드 크로스보우",
+     "두꺼운 가죽 갑옷 신발",
+     "두꺼운 전투복 신발",
+     "라이트 크로스보우S",
+     "로터스 힐링 완드",
+     "마블 힐링 완드S",
+     "사슬 갑옷 신발",
+     "전투복 신발S",
+     "크레센트 엣지소드",
+     "합금강괴"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "나무 진액",
+    "level": 1,
+    "need": 344,
+    "need_main": 344,
+    "need_alt": 0,
+    "direct": 0,
+    "from_parents": {
+     "상급 목재": 344
+    },
+    "account": 0,
+    "main": 118,
+    "incoming": 0,
+    "move": 0,
+    "short": 226,
+    "alter_runs": 0,
+    "alter_known": false,
+    "alter_secs": null,
+    "facility": null,
+    "users": [
+     "상급 목재"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "동 광석",
+    "level": 1,
+    "need": 810,
+    "need_main": 810,
+    "need_alt": 0,
+    "direct": 0,
+    "from_parents": {
+     "합금강괴": 810
+    },
+    "account": 0,
+    "main": 395,
+    "incoming": 0,
+    "move": 0,
+    "short": 415,
+    "alter_runs": 0,
+    "alter_known": false,
+    "alter_secs": null,
+    "facility": null,
+    "users": [
+     "합금강괴"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "목재+",
+    "level": 1,
+    "need": 249,
+    "need_main": 129,
+    "need_alt": 120,
+    "direct": 120,
+    "from_parents": {
+     "상급 목재": 129
+    },
+    "account": 0,
+    "main": 0,
+    "incoming": 0,
+    "move": 0,
+    "short": 249,
+    "alter_runs": 0,
+    "alter_known": false,
+    "alter_secs": null,
+    "facility": null,
+    "users": [
+     "그랜드 크로스보우",
+     "로터스 힐링 완드",
+     "상급 목재"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "상급 생가죽",
+    "level": 1,
+    "need": 300,
+    "need_main": 300,
+    "need_alt": 0,
+    "direct": 0,
+    "from_parents": {
+     "상급 가죽": 300
+    },
+    "account": 0,
+    "main": 0,
+    "incoming": 0,
+    "move": 0,
+    "short": 300,
+    "alter_runs": 0,
+    "alter_known": false,
+    "alter_secs": null,
+    "facility": null,
+    "users": [
+     "상급 가죽"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "상급 양털",
+    "level": 1,
+    "need": 420,
+    "need_main": 420,
+    "need_alt": 0,
+    "direct": 0,
+    "from_parents": {
+     "상급 옷감": 420
+    },
+    "account": 0,
+    "main": 0,
+    "incoming": 0,
+    "move": 0,
+    "short": 420,
+    "alter_runs": 0,
+    "alter_known": false,
+    "alter_secs": null,
+    "facility": null,
+    "users": [
+     "상급 옷감"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "상급 통나무",
+    "level": 1,
+    "need": 645,
+    "need_main": 645,
+    "need_alt": 0,
+    "direct": 0,
+    "from_parents": {
+     "상급 목재": 645
+    },
+    "account": 0,
+    "main": 344,
+    "incoming": 0,
+    "move": 0,
+    "short": 301,
+    "alter_runs": 0,
+    "alter_known": false,
+    "alter_secs": null,
+    "facility": null,
+    "users": [
+     "상급 목재"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "옷감+",
+    "level": 1,
+    "need": 144,
+    "need_main": 84,
+    "need_alt": 60,
+    "direct": 60,
+    "from_parents": {
+     "상급 옷감": 84
+    },
+    "account": 0,
+    "main": 0,
+    "incoming": 13,
+    "move": 0,
+    "short": 131,
+    "alter_runs": 44,
+    "alter_known": true,
+    "alter_secs": 15840,
+    "facility": "옷감 가공 시설",
+    "users": [
+     "두꺼운 전투복 신발",
+     "상급 옷감"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "타닌 가루",
+    "level": 1,
+    "need": 160,
+    "need_main": 160,
+    "need_alt": 0,
+    "direct": 0,
+    "from_parents": {
+     "상급 가죽": 160
+    },
+    "account": 0,
+    "main": 0,
+    "incoming": 0,
+    "move": 0,
+    "short": 160,
+    "alter_runs": 0,
+    "alter_known": false,
+    "alter_secs": null,
+    "facility": null,
+    "users": [
+     "상급 가죽"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "석탄",
+    "level": 2,
+    "need": 1412,
+    "need_main": 1412,
+    "need_alt": 0,
+    "direct": 0,
+    "from_parents": {
+     "합금강괴": 432,
+     "강철괴": 980
+    },
+    "account": 0,
+    "main": 0,
+    "incoming": 0,
+    "move": 0,
+    "short": 1412,
+    "alter_runs": 0,
+    "alter_known": false,
+    "alter_secs": null,
+    "facility": null,
+    "users": [
+     "강철괴",
+     "합금강괴"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "옷감",
+    "level": 2,
+    "need": 129,
+    "need_main": 129,
+    "need_alt": 0,
+    "direct": 0,
+    "from_parents": {
+     "옷감+": 129
+    },
+    "account": 97,
+    "main": 0,
+    "incoming": 0,
+    "move": 0,
+    "short": 32,
+    "alter_runs": 11,
+    "alter_known": true,
+    "alter_secs": 495,
+    "facility": "옷감 가공 시설",
+    "users": [
+     "옷감+"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "철괴",
+    "level": 2,
+    "need": 735,
+    "need_main": 735,
+    "need_alt": 0,
+    "direct": 0,
+    "from_parents": {
+     "강철괴": 735
+    },
+    "account": 0,
+    "main": 0,
+    "incoming": 6,
+    "move": 0,
+    "short": 729,
+    "alter_runs": 243,
+    "alter_known": true,
+    "alter_secs": 7290,
+    "facility": "금속 가공 시설",
+    "users": [
+     "강철괴"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "양털",
+    "level": 3,
+    "need": 766,
+    "need_main": 766,
+    "need_alt": 0,
+    "direct": 0,
+    "from_parents": {
+     "상급 옷감": 224,
+     "옷감+": 172,
+     "옷감": 370
+    },
+    "account": 42,
+    "main": 365,
+    "incoming": 0,
+    "move": 0,
+    "short": 359,
+    "alter_runs": 0,
+    "alter_known": false,
+    "alter_secs": null,
+    "facility": null,
+    "users": [
+     "상급 옷감",
+     "옷감",
+     "옷감+"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   },
+   {
+    "name": "철 광석",
+    "level": 3,
+    "need": 2410,
+    "need_main": 2410,
+    "need_alt": 0,
+    "direct": 0,
+    "from_parents": {
+     "철괴": 2410
+    },
+    "account": 0,
+    "main": 0,
+    "incoming": 0,
+    "move": 0,
+    "short": 2410,
+    "alter_runs": 0,
+    "alter_known": false,
+    "alter_secs": null,
+    "facility": null,
+    "users": [
+     "철괴"
+    ],
+    "not_storable": false,
+    "hint": null,
+    "unsure": false
+   }
+  ],
+  "pooled": [
+   {
+    "item": "전문 캠프파이어 키트",
+    "want": 45,
+    "made": 12,
+    "crafts": 33,
+    "account": 12,
+    "main": 0,
+    "per": 1
+   },
+   {
+    "item": "마법 유탄 부품",
+    "want": 150,
+    "made": 160,
+    "crafts": 0,
+    "account": 160,
+    "main": 0,
+    "per": 5
+   }
+  ],
+  "main": "캐릭터A",
+  "main_live": true,
+  "main_known": true,
+  "incoming_at": null,
+  "main_seen": "2026-11-27 11:50:00",
+  "target": 6,
+  "unseen": 4
+ },
+ "wings": 31540,
+ "wings_daily": {
+  "reset": null,
+  "today": "2026-11-27",
+  "chars": [
+   {
+    "key": "1280|음유시인",
+    "name": "캐릭터B",
+    "current": false,
+    "balance": 8920,
+    "net": 0,
+    "gain": 0,
+    "game": 0,
+    "agent": 0,
+    "away": 0
+   },
+   {
+    "key": "1650|?",
+    "name": "캐릭터A",
+    "current": true,
+    "balance": 31540,
+    "net": -225,
+    "gain": 0,
+    "game": 35,
+    "agent": 150,
+    "away": -40
+   }
+  ],
+  "week": [
+   {
+    "day": "2026-11-27",
+    "net": -225
+   }
+  ],
+  "current": {
+   "key": "1650|?",
+   "name": "캐릭터A",
+   "current": true,
+   "balance": 31540,
+   "net": -225,
+   "gain": 0,
+   "game": 35,
+   "agent": 150,
+   "away": -40
+  }
+ },
+ "runs": [
+  {
+   "t": 1795751400.0,
+   "kind": "개조",
+   "arg": "옷감",
+   "ms": 2575,
+   "ok": true,
+   "error": "",
+   "gained": null
+  },
+  {
+   "t": 1795751310.0,
+   "kind": "수령",
+   "arg": "상급 옷감",
+   "ms": 6476,
+   "ok": true,
+   "error": "",
+   "gained": null
+  },
+  {
+   "t": 1795751220.0,
+   "kind": "개조",
+   "arg": "상급 가죽",
+   "ms": 1555,
+   "ok": true,
+   "error": "",
+   "gained": null
+  },
+  {
+   "t": 1795751130.0,
+   "kind": "개조",
+   "arg": "철괴(철 광석)",
+   "ms": 7130,
+   "ok": true,
+   "error": "",
+   "gained": null
+  },
+  {
+   "t": 1795751040.0,
+   "kind": "수령",
+   "arg": "합금강괴",
+   "ms": 5662,
+   "ok": true,
+   "error": "",
+   "gained": null
+  }
+ ],
+ "wings_spent_today": 150,
+ "status": "ok",
+ "message": ""
+}

@@ -17,9 +17,10 @@ Publishing them (tag v<version>) is done separately (tools/release/publish.js).
 
 Left out: node_modules (installed on first run), data/ and every record/log, icons/*.png
 (cut from the game's screen - each user makes their own), caches. The script refuses to
-build if a packed file mentions a name from the local record (a character name) or a
-webhook, or if a key file (*.pem, *.key, minisign*) would be packed - personal data and
-secrets must never ship.
+build if a packed file mentions a name from the local record (a character name), a
+webhook or this machine (the workspace path, a path into a user profile folder, the Windows user name),
+or if a key file (*.pem, *.key, minisign*) or a Python cache (*.pyc - it holds the
+workspace's absolute path) would be packed - personal data and secrets must never ship.
 """
 from __future__ import annotations
 
@@ -93,12 +94,32 @@ def files():
             yield os.path.join(root, n), os.path.normpath(os.path.join(rel_root, n))
 
 
+def leaks(text):
+    """Where this machine shows through a shipped text: the workspace's absolute path, a user
+    profile path (drive, Users, a name), the Windows user name."""
+    out = []
+    low = text.lower()
+    for p in {WORKSPACE, WORKSPACE.replace("\\", "/"), WORKSPACE.replace("\\", "\\\\")}:
+        if p.lower() in low:
+            out.append("작업 공간 경로")
+            break
+    if re.search(r"[A-Za-z]:(\\\\|\\|/)+Users(\\\\|\\|/)+\w", text, re.I):
+        out.append("사용자 폴더 경로")
+    user = os.environ.get("USERNAME", "")
+    if len(user) >= 3 and re.search(r"(?<![A-Za-z0-9])%s(?![A-Za-z0-9])" % re.escape(user), text, re.I):
+        out.append("Windows 사용자 이름")
+    return out
+
+
 def check(picked):
     words = personal_words()
     bad = []
     for full, rel in picked:
         if KEY_LIKE.search(rel):
             bad.append("%s: 키 파일처럼 보임" % rel)
+            continue
+        if rel.endswith(".pyc") or "__pycache__" in rel:
+            bad.append("%s: Python 캐시 (작업 공간 경로가 박힘)" % rel)
             continue
         if rel.endswith(".png"):
             continue
@@ -108,6 +129,7 @@ def check(picked):
                 bad.append("%s: '%s'" % (rel, w))
         if re.search(r"discord(app)?\.com/api/webhooks", text) and not rel.endswith("build_dist.py"):
             bad.append("%s: webhook URL" % rel)
+        bad += ["%s: %s" % (rel, f) for f in leaks(text)]
     return bad
 
 
@@ -151,7 +173,8 @@ def main(argv):
     appzip = os.path.join(rel_dir, "%s-%s-app.zip" % (APP_ID, ver))
     write_zip(full, [(f, os.path.join(NAME, rel)) for f, rel in picked])
     # the update keeps icons/ in place (the user's own glyph PNGs live there)
-    write_zip(appzip, [(f, rel) for f, rel in picked if not rel.startswith("icons" + os.sep)])
+    # (and docs/ - the README's pictures are not needed to run)
+    write_zip(appzip, [(f, rel) for f, rel in picked if not rel.startswith(("icons" + os.sep, "docs" + os.sep))])
     # the notice (이용 안내) of this version: shown before the download when its version went up
     nver = notice_version()
     notice = os.path.join(rel_dir, "%s-notice-%d.html" % (APP_ID, nver))

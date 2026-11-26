@@ -29,7 +29,10 @@ function noticeVersion(dir) {
 
 // -> Promise<true | false | 'rollback'>. mode: ask | guard | update | view (see notice.js).
 // dir: the folder holding notice.html (+ notice.css, notice.js) - a downloaded notice too.
-function ask({ dir, title, mode = 'ask', iconDir }) {
+// onShown: called once the notice is on screen. The start guard marks the update healthy
+// there: the swap script (apply-update.ps1) rolls back unless the new version reports
+// within 60 s, and reading the notice must not count against that.
+function ask({ dir, title, mode = 'ask', iconDir, onShown }) {
   if (open) { open.win.moveTop(); return open.promise; }
   const a = screen.getPrimaryDisplay().workArea;
   const w = Math.min(560, a.width - 40);
@@ -61,6 +64,7 @@ function ask({ dir, title, mode = 'ask', iconDir }) {
   win.loadFile(path.join(dir, 'notice.html'), { query: { mode } });
   win.once('ready-to-show', async () => {
     win.showInactive();                        // never takes the keyboard from the game by itself
+    if (onShown) { try { onShown(); } catch { /* the notice still works */ } }
     if (process.env.NOTICE_SHOT) {
       const img = await win.webContents.capturePage();
       fs.writeFileSync(process.env.NOTICE_SHOT, img.toPNG());

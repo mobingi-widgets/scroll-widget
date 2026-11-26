@@ -879,6 +879,21 @@ function setExpanded(on) {
 }
 window.__setExpanded = setExpanded;   // used by the screenshot check
 
+// README screenshots (main.js demoShots): numbered marks ①② beside parts of the overlay.
+// list: [[selector, number, 'top' | undefined]] - top: above the element, else in the left gutter
+window.__marks = (list) => {
+  document.querySelectorAll('.mark').forEach((m) => m.remove());
+  for (const [sel, n, side] of list) {
+    const e = document.querySelector(sel);
+    if (!e) continue;
+    const r = e.getBoundingClientRect();
+    const m = el('span', 'mark', String(n));
+    m.style.left = `${side === 'top' ? r.left + r.width / 2 - 8 : 3}px`;
+    m.style.top = `${side === 'top' ? r.top - 17 : r.top + Math.min(r.height, 20) / 2 - 8}px`;
+    document.body.appendChild(m);
+  }
+};
+
 window.widget.onFeed((d) => {
   if (d.type === 'snapshot') {
     snap = d;

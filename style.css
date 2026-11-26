@@ -265,3 +265,12 @@ body.left .skills, body.left .chips { justify-content: flex-start; }
 #status { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 62%; }
 .mini { border: 0; background: rgba(255,255,255,.12); color: var(--white); border-radius: 6px; cursor: pointer; font: inherit; padding: 0 6px; }
 .pfoot input[type=range] { width: 60px; vertical-align: middle; accent-color: var(--teal); }
+
+/* README screenshots (main.js demoShots): a neutral backdrop instead of the game, room for the marks */
+body.demo { background: linear-gradient(160deg, #4a5566, #2b313b); }
+body.demo #root { padding: 20px 8px 8px 24px; }
+.mark {
+  position: fixed; width: 16px; height: 16px; border-radius: 50%; background: #ffd34a; color: #1a1408;
+  font: 700 10.5px/16px "Segoe UI", sans-serif; text-align: center; box-shadow: 0 0 0 1.5px rgba(0,0,0,.55); z-index: 9;
+  text-shadow: none;
+}
