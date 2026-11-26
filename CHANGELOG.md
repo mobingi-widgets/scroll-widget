@@ -15,6 +15,8 @@
   확인한 뒤 파일을 바꾸고(node_modules·data·icons 유지) 재시작, 1분 안에 정상 시작이 안 되면 되돌림. git 폴더는 알리기만.
   릴리스 파일은 `build_dist.py --release`.
 - `game.py`: CLI 기본 위치를 C:~F: 드라이브의 `Program Files (x86)\MabinogiMobile\`에서 찾음 (한 PC의 경로를 박아 두지 않음).
+- `paths.py`: 데이터 폴더를 `%APPDATA%\mobingi-scroll-widget\data-dir.txt`로도 지정 — 따로 설치한 위젯이 작업 공간의 기록을
+  계속 쓰게(업데이트해도 유지).
 
 ## 1.1.0 — 2026-11-27
 
