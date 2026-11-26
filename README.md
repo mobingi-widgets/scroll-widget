@@ -97,6 +97,18 @@ python widget.py catalog             # 품목 카탈로그 보기 / item·remove
 python widget.py undo                # 마지막 손 보정 되돌리기
 ```
 
+## 업데이트
+
+- 켤 때와 6시간마다 [GitHub 릴리스](https://github.com/mobingi-widgets/scroll-widget/releases)를 확인합니다 (정식 릴리스만).
+- 새 버전이 있으면 ☰에 초록 점과 알림 한 번, ☰ 메뉴에 **⬆ 업데이트 x.y.z 설치**. 스스로 설치하거나 재시작하지 않습니다.
+- 설치를 누르면 프로그램 파일만(수십 KB) 받아 **서명을 확인한 뒤** 바꾸고 위젯을 다시 켭니다.
+  - 받는 파일은 모두 이 프로그램에 들어 있는 공개키(minisign)로 서명을 확인합니다. 서명이 없거나 다르면, 버전이 지금보다
+    높지 않으면, 크기·sha256이 맞지 않으면 설치하지 않습니다. HTTPS로 github.com 쪽 주소에서만 받습니다.
+  - `node_modules`, `data/`, `icons/`(직접 만든 아이콘)는 그대로 둡니다. 개인 데이터(기록)는 건드리지 않습니다.
+  - 이전 파일은 프로그램 폴더 옆 `.scroll-widget-update\previous`에 남기고, 새 버전이 1분 안에 정상으로 뜨지 않으면 되돌립니다.
+  - Electron 버전이 바뀌는 업데이트는 "전체 설치 필요"로 알려 주고 릴리스 페이지를 엽니다.
+- git으로 받은 폴더(`.git`이 있는 폴더)는 알려 주기만 합니다 — git으로 받습니다.
+
 ## 버전
 
 `CHANGELOG.md` — 프로그램 버전과 데이터 형식 변경 이력.

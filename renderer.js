@@ -290,12 +290,17 @@ document.addEventListener('mousedown', (e) => {
 }, true);
 
 // problems from main.js: the ☰ becomes a red ⚠ and says what is wrong
+let lastProblemList = [];
+let updVersion = '';                   // a newer release (main.js update check): dot on the ☰
 function setProblems(list) {
+  lastProblemList = list;
   const m = $('menu');
   const bad = list.length > 0;
   m.textContent = bad ? '⚠' : '☰';
   m.classList.toggle('warn', bad);
+  m.classList.toggle('upd', !!updVersion);
   m.title = (bad ? list.map((p) => '⚠ ' + p).join('\n') : '메뉴 — 동기화 정보 · 새로고침 · 위치 초기화 · 표시 · 종료') +
+    (updVersion ? `\n⬆ 새 버전 ${updVersion} — 메뉴에서 설치` : '') +
     '\n\n클릭: 메뉴 · 드래그: 위치 옮기기 (가장자리에 붙음 · 다른 오버레이는 피함)';
 }
 
@@ -903,6 +908,9 @@ window.widget.onFeed((d) => {
       blockUntil = Date.now() + 300;     // the release is not a click on what is under it
       hovering = false;                  // main made the window click-through again; the next move re-asks
     }
+  } else if (d.type === 'update') {
+    updVersion = d.version || '';
+    setProblems(lastProblemList);
   } else if (d.type === 'menu') {
     blockUntil = d.open ? Infinity : Date.now() + 300;
   }
