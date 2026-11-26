@@ -356,6 +356,49 @@ sizer.addEventListener('pointerdown', (e) => {
   sizer.addEventListener('pointercancel', done);
 });
 sizer.addEventListener('dblclick', () => { if (!blocked()) window.widget.ui('maxh', null); });
+
+// The width bar on the edge away from the anchored side (user 2026-11-27), like the height
+// line: hover = a thin line, drag = the width (main.js follows the cursor - the window moves
+// under it), double-click = the default width. Never narrower than the header needs; the
+// extra width goes to the tables' name column.
+const wsizer = $('wsizer');
+let defWidth = 270;
+function setWidthTip(w, def) {
+  if (def) defWidth = def;
+  setTip(wsizer, { lines: [`너비 ${w}px — 끌기: 너비 바꾸기 (게임 창의 40%까지, 다른 오버레이 앞에서 멈춤)`, `두 번 클릭: 기본 너비 ${defWidth}px`] });
+}
+function headNeeds() {
+  const head = document.querySelector('.head');
+  const cs = getComputedStyle(head);
+  const gap = parseFloat(cs.columnGap) || parseFloat(cs.gap) || 0;
+  let need = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+  let n = 0;
+  for (const c of head.children) {
+    if (c.offsetParent === null) continue;            // hidden
+    need += c.getBoundingClientRect().width;
+    n += 1;
+  }
+  need += gap * Math.max(0, n - 1);
+  return Math.ceil(need + (window.innerWidth - head.getBoundingClientRect().width) + 4);
+}
+wsizer.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0 || blocked()) return;
+  e.preventDefault();
+  try { wsizer.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+  tipFor(null);
+  document.body.classList.add('wsizing');
+  window.widget.ui('width-drag', { on: true, min: headNeeds() });
+  const done = () => {
+    wsizer.removeEventListener('pointerup', done);
+    wsizer.removeEventListener('pointercancel', done);
+    document.body.classList.remove('wsizing');
+    window.widget.ui('width-drag', { on: false });
+    blockUntil = Date.now() + 300;
+  };
+  wsizer.addEventListener('pointerup', done);
+  wsizer.addEventListener('pointercancel', done);
+});
+wsizer.addEventListener('dblclick', () => { if (!blocked()) window.widget.ui('width-reset'); });
 new ResizeObserver(() => {
   fitTab();
   window.widget.ui('height', $('root').getBoundingClientRect().height + 2);
@@ -905,6 +948,15 @@ window.widget.onFeed((d) => {
   } else if (d.type === 'window') {
     document.body.classList.toggle('expanded', !!d.expanded);
     document.body.classList.toggle('left', d.align !== 'right');
+    document.body.classList.toggle('wbar-left', d.wside === 'left');
+    document.body.classList.toggle('wbar-right', d.wside !== 'left');
+    if (d.width) setWidthTip(d.width, d.defWidth);
+  } else if (d.type === 'width') {
+    // the side bar is being dragged: a live label; gone when let go
+    const lab = $('wlabel');
+    lab.textContent = `너비 ${d.width}px`;
+    lab.hidden = !d.live;
+    setWidthTip(d.width);
   } else if (d.type === 'notify') {
     toast(d.text, d.sec, d.by);
   } else if (d.type === 'mode') {

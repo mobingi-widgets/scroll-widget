@@ -224,7 +224,45 @@ function create(opts) {
   }
   createGuide();
 
-  return { start, end, active: () => !!drag, publish, unpublish, guideWindow: () => guide };
+  // ------------------------------------------------------------- width bar
+  // The thin bar on the edge away from the anchored side (user 2026-11-27): while it is
+  // dragged that edge follows the cursor. side = the edge being dragged ('left' | 'right').
+  // The width (CSS px, the page's own unit) snaps to the 4-px grid, stays within [min, max]
+  // and stops a gap short of another overlay beside it. onWidth(css, done) applies it.
+  let wdrag = null;
+  let wtimer = null;
+  function widthStart({ side, zoom, min, max, onWidth }) {
+    const b = win.getBounds();
+    const anchor = side === 'left' ? b.x + b.width : b.x;
+    // the other overlays beside it (they do not move meanwhile): the farthest the edge may go
+    let room = Infinity;
+    for (const o of others()) {
+      if (o.y >= b.y + b.height || o.y + o.h <= b.y) continue;
+      if (side === 'left' && o.x + o.w <= b.x + 1) room = Math.min(room, anchor - (o.x + o.w) - GAP);
+      if (side === 'right' && o.x >= b.x + b.width - 1) room = Math.min(room, o.x - anchor - GAP);
+    }
+    wdrag = { side, zoom, min, max, onWidth, anchor, room, last: null };
+    clearInterval(wtimer);
+    wtimer = setInterval(() => widthStep(false), 16);
+  }
+  function widthStep(done) {
+    if (!wdrag || !win || win.isDestroyed()) return;
+    const d = wdrag;
+    const c = opts.cursor();
+    const dip = Math.min(d.side === 'left' ? d.anchor - c.x : c.x - d.anchor, d.room);
+    const top = Math.floor(Math.min(d.max, d.room / d.zoom) / GRID) * GRID;        // on the grid too
+    const css = clamp(Math.round(dip / d.zoom / GRID) * GRID, d.min, Math.max(d.min, top));
+    if (css !== d.last || done) { d.last = css; d.onWidth(css, done); }
+  }
+  function widthEnd() {
+    if (!wdrag) return;
+    clearInterval(wtimer);
+    widthStep(true);
+    wdrag = null;
+  }
+
+  return { start, end, active: () => !!drag, publish, unpublish, guideWindow: () => guide, others,
+    widthStart, widthEnd, widthActive: () => !!wdrag };
 }
 
 module.exports = { create };

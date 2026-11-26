@@ -144,6 +144,20 @@ def asset(path):
     return {"name": os.path.basename(path), "size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
 
 
+def electron_selftest(files):
+    """Check every new signature with the updater as the app runs it - inside Electron, whose
+    crypto (BoringSSL) is not node's (1.3.0 shipped an updater that could not hash BLAKE2b there).
+    -> (ok, output)"""
+    exe = os.path.join(HERE, "node_modules", "electron", "dist", "electron.exe")
+    js = ("const u = require(process.argv[1]), fs = require('fs'), p = require('path');"
+          "for (const f of process.argv.slice(2)) u.verifyMinisig(fs.readFileSync(f), fs.readFileSync(f + '.minisig', 'utf8'), p.basename(f));"
+          "console.log('verified ' + (process.argv.length - 2) + ' in electron ' + process.versions.electron)")
+    run = subprocess.run([exe, "-e", js, os.path.join(HERE, "updater.js"), *files], capture_output=True, text=True,
+                         encoding="utf-8", env=dict(os.environ, ELECTRON_RUN_AS_NODE="1"))
+    out = (run.stdout + run.stderr).strip()
+    return run.returncode == 0 and "verified" in run.stdout, out[-800:]
+
+
 def main(argv):
     release = "--release" in argv
     out_root = argv[argv.index("--out") + 1] if "--out" in argv else os.path.join(WORKSPACE, "dist")
@@ -196,6 +210,11 @@ def main(argv):
     if sign.returncode != 0:
         print("서명 실패:\n" + sign.stderr[-1000:])
         return 1
+    ok, out = electron_selftest([appzip, full, notice, latest])
+    if not ok:
+        print("Electron 안에서 서명 확인 실패 — 앱이 이 릴리스를 받을 수 없음, 게시하지 말 것:\n" + out)
+        return 1
+    print("  " + out.splitlines()[-1])
     for n in sorted(os.listdir(rel_dir)):
         print("  %-40s %10.1f KB" % (n, os.path.getsize(os.path.join(rel_dir, n)) / 1e3))
     print(rel_dir)

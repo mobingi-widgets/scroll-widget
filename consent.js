@@ -32,11 +32,13 @@ function noticeVersion(dir) {
 // onShown: called once the notice is on screen. The start guard marks the update healthy
 // there: the swap script (apply-update.ps1) rolls back unless the new version reports
 // within 60 s, and reading the notice must not count against that.
-function ask({ dir, title, mode = 'ask', iconDir, onShown }) {
+// zoom: the overlay's text zoom (글자 작게/중간/크게), so the notice reads at the same size.
+function ask({ dir, title, mode = 'ask', iconDir, onShown, zoom = 1 }) {
   if (open) { open.win.moveTop(); return open.promise; }
+  const z = zoom > 0.3 && zoom < 4 ? zoom : 1;
   const a = screen.getPrimaryDisplay().workArea;
-  const w = Math.min(560, a.width - 40);
-  const h = Math.min(700, a.height - 40);
+  const w = Math.min(Math.round(560 * z), a.width - 40);
+  const h = Math.min(Math.round(700 * z), a.height - 40);
   const icon = path.join(iconDir || dir, 'icon.png');
   const win = new BrowserWindow({
     width: w, height: h, x: Math.round(a.x + (a.width - w) / 2), y: Math.round(a.y + (a.height - h) / 2),
@@ -61,6 +63,7 @@ function ask({ dir, title, mode = 'ask', iconDir, onShown }) {
   win.on('closed', () => finish(false));         // the X = not agreed
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('did-finish-load', () => { if (z !== 1) win.webContents.setZoomFactor(z); });
   win.loadFile(path.join(dir, 'notice.html'), { query: { mode } });
   win.once('ready-to-show', async () => {
     win.showInactive();                        // never takes the keyboard from the game by itself

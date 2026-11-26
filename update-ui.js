@@ -21,7 +21,7 @@ const W = 400;
 function create(o) {
   // o: { dir, repo, app, version, title, userData, canInstall(), stageRoot(), installOpts() -> {appDir, keep,
   //      launch, launchArgs, launchCwd}, previousDir(), cfg(), saveCfg(patch), near() -> DIP rect | null,
-  //      page(msg), quit() }
+  //      page(msg), quit(), zoom() (optional: the overlay's text zoom - the window follows it) }
   const st = { info: null, error: '', at: 0, checking: false, phase: 'idle', progress: null, tampered: false };
   let win = null;
   let winH = 200;
@@ -53,11 +53,16 @@ function create(o) {
   function send() { if (win && !win.isDestroyed()) win.webContents.send('update', model()); }
 
   // ------------------------------------------------------------------- the window
+  // the same text size as the overlay (its zoom: game window size x 글자 작게/중간/크게)
+  const zoom = () => { const z = o.zoom ? Number(o.zoom()) : 1; return z > 0.3 && z < 4 ? z : 1; };
   function placeWin() {
     if (!win || win.isDestroyed()) return;
+    const z = zoom();
+    if (Math.abs(win.webContents.getZoomFactor() - z) > 0.001) win.webContents.setZoomFactor(z);
     const g = o.near() || screen.getPrimaryDisplay().workArea;
-    const h = Math.min(winH, g.height - 20);
-    win.setBounds({ x: Math.round(g.x + (g.width - W) / 2), y: Math.round(g.y + Math.max(10, (g.height - h) / 3)), width: W, height: h });
+    const w = Math.round(W * z);
+    const h = Math.min(Math.round(winH * z), g.height - 20);
+    win.setBounds({ x: Math.round(g.x + (g.width - w) / 2), y: Math.round(g.y + Math.max(10, (g.height - h) / 3)), width: w, height: h });
   }
   function openWindow() {
     if (win && !win.isDestroyed()) { send(); win.moveTop(); return; }
@@ -85,8 +90,11 @@ function create(o) {
   });
 
   // ------------------------------------------------------------------- checking
+  // A manual check always answers (user, 2026-11-27: 1.3.0's "지금 확인" said nothing): a click
+  // during a running check gets that check's answer, one during a download sees the window.
   async function check({ manual = false } = {}) {
-    if (st.checking || busy()) return;
+    if (busy()) { if (manual) openWindow(); return; }
+    if (st.checking) { if (manual) st.manualWaiting = true; return; }
     st.checking = true;
     try {
       st.info = await updater.check({ repo: o.repo, app: o.app, version: o.version });
@@ -98,7 +106,8 @@ function create(o) {
       st.at = Date.now();
     }
     pageState();
-    if (!manual) return;
+    if (!manual && !st.manualWaiting) return;
+    st.manualWaiting = false;
     if (st.error) o.page({ type: 'update-toast', level: 'warn', text: `업데이트 확인 실패: ${st.error}` });
     else if (st.info && st.info.available) { st.phase = 'available'; openWindow(); }
     else o.page({ type: 'update-toast', level: 'info', text: st.info && st.info.none ? '아직 나온 릴리스가 없습니다' : '최신 버전입니다' });
@@ -132,7 +141,7 @@ function create(o) {
       let answer = false;
       try {
         const dir = await updater.fetchNotice(i, path.join(o.stageRoot(), 'notice'));
-        answer = await consent.ask({ dir, title: `${o.title} — 바뀐 이용 안내`, mode: 'update', iconDir: o.dir });
+        answer = await consent.ask({ dir, title: `${o.title} — 바뀐 이용 안내`, mode: 'update', iconDir: o.dir, zoom: zoom() });
       } catch (e) {
         st.phase = 'error';
         st.error = String((e && e.message) || e);

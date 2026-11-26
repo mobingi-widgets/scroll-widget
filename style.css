@@ -26,7 +26,19 @@ body {
   user-select: none;
   -webkit-font-smoothing: antialiased;
 }
-#root { padding: 2px 0 6px; display: flex; flex-direction: column; align-items: flex-end; }
+#root { position: relative; padding: 2px 0 6px; display: flex; flex-direction: column; align-items: flex-end; }
+
+/* the width bar (user 2026-11-27): the edge away from the anchored side; unseen until hovered */
+#wsizer { position: absolute; top: 0; bottom: 0; width: 7px; cursor: ew-resize; touch-action: none; z-index: 3; }
+body.wbar-left #wsizer { left: 0; }
+body.wbar-right #wsizer { right: 0; }
+#wsizer::after { content: ''; position: absolute; top: 50%; width: 3px; height: 44px; margin-top: -22px; border-radius: 2px; background: transparent; }
+body.wbar-left #wsizer::after { left: 2px; }
+body.wbar-right #wsizer::after { right: 2px; }
+#wsizer:hover::after, body.wsizing #wsizer::after { background: var(--yellow); box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+#wlabel { position: absolute; top: 24px; z-index: 4; padding: 1px 6px; border-radius: 4px; background: rgba(0,0,0,.82); color: #fff; font-size: 10.5px; white-space: nowrap; pointer-events: none; }
+body.wbar-left #wlabel { left: 10px; }
+body.wbar-right #wlabel { right: 10px; }
 .line, .pill, .panel, .band {
   text-shadow: -1px -1px 0 rgba(0,0,0,.75), 1px -1px 0 rgba(0,0,0,.75), -1px 1px 0 rgba(0,0,0,.75),
                1px 1px 0 rgba(0,0,0,.75), 0 0 4px rgba(0,0,0,.6);
@@ -234,7 +246,10 @@ body.moving.blocked #root { outline-color: var(--red); }
 .sdot.ok { background: var(--green); } .sdot.retry, .sdot.loading { background: var(--yellow); }
 .sdot.offline, .sdot.dead { background: var(--red); }
 .grp { margin: 4px 0 1px; }
-#tab-items .row .name { flex: 1 1 auto; }
+/* a wider overlay (the width bar) gives its extra width to the names (user 2026-11-27):
+   the item name grows six times as fast as the town, the materials' name column takes it all */
+#tab-items .row .name { flex: 6 1 auto; }
+#tab-mats table tr > :first-child { width: 100%; }
 .row .meter.sm { width: 30px; }
 .row .chip { flex: none; }
 

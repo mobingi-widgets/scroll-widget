@@ -32,16 +32,13 @@ function create({ dir }) {
     catcher = new BrowserWindow({
       show: false, frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false, resizable: false,
       focusable: false, skipTaskbar: true, alwaysOnTop: true, title: 'menu catcher',
-      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+      webPreferences: { preload: path.join(__dirname, 'menu-catcher-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
     });
     catcher.setAlwaysOnTop(true, 'screen-saver');
-    // an almost invisible page still takes the mouse (a fully transparent pixel would let it through)
-    catcher.loadURL('data:text/html,<html><body style="margin:0;background:rgba(0,0,0,0.004)"></body></html>');
+    // an almost invisible page still takes the mouse (a fully transparent pixel would let it through);
+    // a press on it reaches us through its preload ('ctxmenu-catch' below)
+    catcher.loadURL('data:text/html,<html><body style="margin:0;height:100vh;background:rgba(0,0,0,0.01)"></body></html>');
     catcher.webContents.on('before-input-event', () => close());
-    catcher.webContents.on('did-finish-load', () => {
-      catcher.webContents.executeJavaScript("document.addEventListener('mousedown', () => location.hash = 'x' + Date.now(), true)");
-    });
-    catcher.webContents.on('did-navigate-in-page', () => close());   // any click on it = close
     menu = new BrowserWindow({
       width: W, height, show: false, frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false,
       resizable: false, focusable: false, skipTaskbar: true, alwaysOnTop: true, title: 'menu',
@@ -97,6 +94,9 @@ function create({ dir }) {
     if (catcher && !catcher.isDestroyed()) catcher.hide();
     if (c.onClose) c.onClose();
   }
+
+  // a press outside the menu: it only closes the menu (the catcher takes it, nothing under it gets it)
+  ipcMain.on('ctxmenu-catch', (e) => { if (catcher && !catcher.isDestroyed() && e.sender === catcher.webContents) close(); });
 
   ipcMain.on('ctxmenu', (e, what, id, opt) => {
     if (!menu || e.sender !== menu.webContents || !current) return;

@@ -21,6 +21,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawn, execFileSync } = require('child_process');
+const { blake2b } = require('./blake2b');
 
 // minisign public key (tools/release/keygen.js; key id 623EF23D2110FCB4)
 const PUBLIC_KEY = 'RWS0/BAhPfI+Yl/Y3JwoMs44HRwckwPaOsl8dwK7ceDVCJOz3Dl9NhtE';
@@ -83,6 +84,13 @@ const tampered = (msg) => Object.assign(new Error(msg), { tampered: true });
 
 // ------------------------------------------------------------------ minisign
 
+// The ED signatures sign a file's BLAKE2b-512. node with OpenSSL has it; Electron's BoringSSL
+// does not ("Digest method not supported" - why 1.4.0 / 1.3.0 could not update), so then the
+// plain-JS one (blake2b.js). Ed25519 itself BoringSSL has.
+function blake2b512(data) {
+  try { return crypto.createHash('blake2b512').update(data).digest(); } catch { return blake2b(data, 64); }
+}
+
 function verifyMinisig(data, sigText, expectName) {
   const lines = String(sigText).split(/\r?\n/);
   if (lines.length < 4 || !lines[2].startsWith('trusted comment: ')) throw new Error('서명 파일 형식이 아님');
@@ -93,7 +101,7 @@ function verifyMinisig(data, sigText, expectName) {
   if (!blob.subarray(2, 10).equals(pub.subarray(2, 10))) throw tampered('다른 키로 서명됨');
   const key = crypto.createPublicKey({ key: Buffer.concat([SPKI_ED25519, pub.subarray(10)]), format: 'der', type: 'spki' });
   const sig = blob.subarray(10);
-  const digest = crypto.createHash('blake2b512').update(data).digest();
+  const digest = blake2b512(data);
   if (!crypto.verify(null, digest, key, sig)) throw tampered('서명이 맞지 않음');
   const trusted = lines[2].slice('trusted comment: '.length);
   const global = Buffer.from(lines[3].trim(), 'base64');

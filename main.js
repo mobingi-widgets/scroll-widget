@@ -47,6 +47,7 @@ function makeUpdateUi() {
     // short messages go to the toast window; the rest to the page (dot, pill)
     page: (m) => (m.type === 'update-toast' ? notify({ text: m.text, level: m.level, sec: m.sec, by: '업데이트' }) : toPage(m)),
     quit: () => app.quit(),
+    zoom: () => zoom,                  // the update window reads at the overlay's text size
   });
 }
 
@@ -80,8 +81,12 @@ const POS = { left: { dx: 8, fy: 0.24 }, right: { dx: 6, fy: 0.29 } };
 // toast: notices in their own window over the game (user, 2026-11-27: not inside the
 // overlay, which has no room). pos = top | center | bottom of the game window;
 // min = the least important level shown (info < warn < action); on = off switch.
-const DEFAULTS = { width: 270, align: 'left', ...POS.left, show: 'always', opacity: 1, expanded: false, v: 3,
+const DEFAULTS = { width: 270, align: 'left', ...POS.left, show: 'always', opacity: 1, expanded: false, v: 3, font: 'mid',
   toast: { on: true, pos: 'top', min: 'info' } };
+// 글자 작게/중간/크게 (user 2026-11-27): times the zoom that follows the game window's size;
+// everything of this program takes it (overlay, tooltip, menu, toast, update window, notice)
+const FONT_SCALE = { small: 0.85, mid: 1, large: 1.2 };
+const WIDTH_MAX_OF_GAME = 0.4;   // the width bar stops at 40% of the game window
 const LEVEL_RANK = { info: 0, warn: 1, action: 2 };
 const TOAST_WIDTH = 380;          // DIP at the reference game height; zooms like the overlay
 const REF_GAME_HEIGHT = 680;     // DIP height the CSS sizes were set for; larger game windows zoom up
@@ -94,7 +99,9 @@ function loadCfg() {
   try { saved = JSON.parse(fs.readFileSync(CFG_PATH(), 'utf8')); } catch { /* first run */ }
   if (!saved.v) delete saved.show;     // v1 defaulted to 'game'; take the new default once
   if (!saved.v || saved.v < 3) { delete saved.dx; delete saved.fy; delete saved.align; }   // v3 moved it to the left
-  return { ...DEFAULTS, ...saved, toast: { ...DEFAULTS.toast, ...(saved.toast || {}) }, v: DEFAULTS.v };
+  const c = { ...DEFAULTS, ...saved, toast: { ...DEFAULTS.toast, ...(saved.toast || {}) }, v: DEFAULTS.v };
+  if (!FONT_SCALE[c.font]) c.font = 'mid';
+  return c;
 }
 let cfg = DEFAULTS;
 
@@ -381,10 +388,35 @@ function setRoom(r) {
   toPage({ type: 'room', ...r });
 }
 
+// ------------------------------------------------------------- width bar
+// The edge away from the anchored side (user 2026-11-27): docked left -> the right edge,
+// docked right -> the left edge; a plain window grows to the right.
+const widthSide = () => (appMode || cfg.align !== 'right' ? 'right' : 'left');
+function windowState() {
+  return { type: 'window', expanded: !!cfg.expanded, align: cfg.align, wside: widthSide(), width: cfg.width, defWidth: DEFAULTS.width };
+}
+function widthDrag(on, min) {
+  if (!dock) return;
+  if (!on) { dock.widthEnd(); return; }
+  const g = gameRectDip();
+  const max = g ? Math.floor((g.width * WIDTH_MAX_OF_GAME) / zoom) : 640;
+  tipAnchor = null;
+  placeTip();
+  dock.widthStart({
+    side: widthSide(), zoom, min: Math.max(180, Math.ceil(min || 0)), max: Math.max(DEFAULTS.width, max),
+    onWidth: (w, done) => {
+      cfg.width = w;                       // live; kept when let go
+      place();
+      toPage({ type: 'width', width: w, live: !done });
+      if (done) { saveCfg({ width: w }); sizing = false; }
+    },
+  });
+}
+
 function place() {
   if (!win || win.isDestroyed() || isDragging()) return;
   const g = gameRectDip();
-  const z = g ? Math.max(0.75, Math.min(1.6, g.height / REF_GAME_HEIGHT)) : 1;
+  const z = (g ? Math.max(0.75, Math.min(1.6, g.height / REF_GAME_HEIGHT)) : 1) * (FONT_SCALE[cfg.font] || 1);
   if (Math.abs(z - zoom) > 0.01) {
     zoom = z;
     win.webContents.setZoomFactor(zoom);
@@ -448,7 +480,7 @@ const isDragging = () => !!(dock && dock.active());
 function onDrop(r) {
   if (r.appPos) saveCfg({ appPos: r.appPos });
   else saveCfg({ align: r.align, dx: r.dx, fy: r.fy });
-  toPage({ type: 'window', expanded: !!cfg.expanded, align: cfg.align });
+  toPage(windowState());
   if (!appMode && win && !win.isDestroyed()) {
     win.setIgnoreMouseEvents(true, { forward: true });
     interactive = false;
@@ -548,6 +580,18 @@ async function demoShots() {
     await wait(700);
     await save(win, `tab-${t}`);
   }
+  // the width bar: a wider overlay, the extra width in the names; its live label
+  saveCfg({ width: 392 });
+  place();
+  toPage({ ...windowState(), expanded: true });
+  toPage({ type: 'width', width: 360, live: true });
+  await js("document.body.classList.add('wsizing')");
+  await wait(800);
+  await save(win, 'mats-wide');
+  await js("document.body.classList.remove('wsizing')");
+  toPage({ type: 'width', width: 360, live: false });
+  saveCfg({ width: DEFAULTS.width + 32 });
+  place();
   await js('window.__setExpanded(false)');
   await wait(500);
   if (await js("window.__tipTest('#chips-status .tipm')")) { await wait(1600); await save(tipWin, 'tooltip'); }
@@ -645,6 +689,10 @@ function menuItems() {
   });
   items.push({ type: 'item', id: 'toast-test', label: '시험 알림 띄우기', disabled: !cfg.toast.on });
   items.push({
+    type: 'segment', id: 'font', label: '글자', tip: '오버레이·툴팁·메뉴·알림·업데이트 창·이용 안내의 글자 크기 (게임 창 크기에 맞춘 배율 위에)',
+    options: [['small', '작게'], ['mid', '중간'], ['large', '크게']].map(([id, label]) => ({ id, label, on: cfg.font === id })),
+  });
+  items.push({
     type: 'segment', id: 'opacity', label: '투명도',
     options: [1, 0.9, 0.8, 0.7, 0.6].map((o) => ({ id: String(o), label: String(Math.round(o * 100)), on: Math.abs((cfg.opacity || 1) - o) < 0.01 })),
   });
@@ -673,8 +721,9 @@ function menuAct(id, opt) {
     case 'toast-pos': setToast({ pos: opt }); return true;
     case 'toast-min': setToast({ min: opt }); return true;
     case 'toast-test': notify({ text: '시험 알림 — 여기에 뜹니다', level: 'info', by: '☰ 메뉴' }); return false;
+    case 'font': if (FONT_SCALE[opt]) { saveCfg({ font: opt }); place(); } return false;   // the menu itself changes size
     case 'opacity': setOpacity(Number(opt)); return true;
-    case 'notice': consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: 'view' }); return false;
+    case 'notice': consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: 'view', zoom }); return false;
     case 'quit': app.quit(); return false;
     default: return false;
   }
@@ -701,7 +750,7 @@ function popupMenu() {
 
 function setAlign(a) {
   saveCfg({ align: a, ...POS[a] });
-  toPage({ type: 'window', expanded: !!cfg.expanded, align: cfg.align });
+  toPage(windowState());
   place();
 }
 
@@ -749,7 +798,7 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'index.html'));
   win.webContents.on('did-finish-load', () => {
     win.webContents.setZoomFactor(zoom);
-    toPage({ type: 'window', expanded: !!cfg.expanded, align: cfg.align });
+    toPage(windowState());
     toPage({ type: 'mode', app: appMode });
     room = undefined;                  // a reloaded page has to hear the room again
     lastProblems = '';
@@ -824,6 +873,14 @@ ipcMain.on('ui', (_e, action, arg) => {
     saveCfg({ expanded: !!arg });
   } else if (action === 'sizing') {
     sizing = !!arg;
+  } else if (action === 'width-drag') {
+    // the side bar: arg = { on, min (CSS px the header needs) }
+    sizing = !!(arg && arg.on);
+    widthDrag(!!(arg && arg.on), arg && arg.min);
+  } else if (action === 'width-reset') {
+    saveCfg({ width: DEFAULTS.width });
+    place();
+    toPage({ type: 'width', width: cfg.width, live: false });
   } else if (action === 'maxh') {
     // the bottom line was let go: the overlay's height limit (CSS px); null = none
     saveCfg({ maxH: arg == null ? null : Math.max(80, Math.round(Number(arg) || 0)) });
@@ -845,7 +902,7 @@ if (!app.requestSingleInstanceLock()) {
       const guard = !fs.existsSync(path.join(__dirname, '.git')) && uui.hasPrevious();
       // started fine (an update waiting on update-ok.json must not roll back while the notice is read)
       const onShown = () => updater.markHealthy(path.join(app.getPath('userData'), 'update-ok.json'), VERSION);
-      const answer = await consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: guard ? 'guard' : 'ask', onShown });
+      const answer = await consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: guard ? 'guard' : 'ask', onShown, zoom: FONT_SCALE[cfg.font] || 1 });
       if (answer === 'rollback') { uui.rollback(); return; }
       if (answer !== true) { app.quit(); return; }
       saveCfg({ notice: noticeV, noticeAt: new Date().toISOString(), noticeDeclined: null });
