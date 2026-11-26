@@ -47,11 +47,12 @@ function newer(a, b) {                 // a > b, strictly
 
 // ----------------------------------------------------------------- download
 
-async function download(url, maxBytes) {
+// onProgress(received, total|0) while the body arrives (total from the final hop's Content-Length)
+async function download(url, maxBytes, onProgress) {
   for (let hop = 0; hop < 8; hop++) {
     const u = new URL(url);
     if (u.protocol !== 'https:' || !HOSTS.has(u.hostname)) throw new Error(`허용되지 않은 주소: ${u.protocol}//${u.hostname}`);
-    const res = await fetch(u, { redirect: 'manual', headers: { 'User-Agent': UA, Accept: 'application/octet-stream' }, signal: AbortSignal.timeout(60000) });
+    const res = await fetch(u, { redirect: 'manual', headers: { 'User-Agent': UA, Accept: 'application/octet-stream' }, signal: AbortSignal.timeout(10 * 60000) });
     if ([301, 302, 303, 307, 308].includes(res.status)) {
       const loc = res.headers.get('location');
       if (!loc) throw new Error(`리다이렉트에 주소 없음 (HTTP ${res.status})`);
@@ -60,14 +61,25 @@ async function download(url, maxBytes) {
     }
     if (res.status === 404) throw Object.assign(new Error('릴리스 없음'), { notFound: true });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const len = Number(res.headers.get('content-length') || 0);
-    if (len > maxBytes) throw new Error(`파일이 너무 큼 (${len} B)`);
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length > maxBytes) throw new Error(`파일이 너무 큼 (${buf.length} B)`);
-    return buf;
+    const total = Number(res.headers.get('content-length') || 0);
+    if (total > maxBytes) throw new Error(`파일이 너무 큼 (${total} B)`);
+    const parts = [];
+    let received = 0;
+    const reader = res.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.length;
+      if (received > maxBytes) { reader.cancel().catch(() => {}); throw new Error(`파일이 너무 큼 (${received} B 넘음)`); }
+      parts.push(Buffer.from(value));
+      if (onProgress) onProgress(received, total);
+    }
+    return Buffer.concat(parts);
   }
   throw new Error('리다이렉트가 너무 많음');
 }
+
+const tampered = (msg) => Object.assign(new Error(msg), { tampered: true });
 
 // ------------------------------------------------------------------ minisign
 
@@ -78,16 +90,16 @@ function verifyMinisig(data, sigText, expectName) {
   const pub = Buffer.from(PUBLIC_KEY, 'base64');
   if (blob.length !== 74 || pub.length !== 42 || pub.subarray(0, 2).toString('latin1') !== 'Ed') throw new Error('서명·공개키 길이가 맞지 않음');
   if (blob.subarray(0, 2).toString('latin1') !== 'ED') throw new Error('지원하지 않는 서명 방식');
-  if (!blob.subarray(2, 10).equals(pub.subarray(2, 10))) throw new Error('다른 키로 서명됨');
+  if (!blob.subarray(2, 10).equals(pub.subarray(2, 10))) throw tampered('다른 키로 서명됨');
   const key = crypto.createPublicKey({ key: Buffer.concat([SPKI_ED25519, pub.subarray(10)]), format: 'der', type: 'spki' });
   const sig = blob.subarray(10);
   const digest = crypto.createHash('blake2b512').update(data).digest();
-  if (!crypto.verify(null, digest, key, sig)) throw new Error('서명이 맞지 않음');
+  if (!crypto.verify(null, digest, key, sig)) throw tampered('서명이 맞지 않음');
   const trusted = lines[2].slice('trusted comment: '.length);
   const global = Buffer.from(lines[3].trim(), 'base64');
-  if (!crypto.verify(null, Buffer.concat([sig, Buffer.from(trusted, 'utf8')]), key, global)) throw new Error('trusted comment 서명이 맞지 않음');
+  if (!crypto.verify(null, Buffer.concat([sig, Buffer.from(trusted, 'utf8')]), key, global)) throw tampered('trusted comment 서명이 맞지 않음');
   const file = trusted.split('\t').find((p) => p.startsWith('file:'));
-  if (!file || file.slice(5) !== expectName) throw new Error(`서명된 파일 이름이 다름 (${file ? file.slice(5) : '없음'} ≠ ${expectName})`);
+  if (!file || file.slice(5) !== expectName) throw tampered(`서명된 파일 이름이 다름 (${file ? file.slice(5) : '없음'} ≠ ${expectName})`);
   return trusted;
 }
 
@@ -116,21 +128,43 @@ async function check({ repo, app, version }) {
   if (f && f.name !== `${app}-${j.version}-full.zip`) throw new Error('자산 이름의 버전이 피드와 다름');
   const runtime = j.runtime || {};
   const needFull = !!(runtime.electron && runtime.electron !== process.versions.electron);
+  // the notice (이용 안내) of the new version; asked again before the download when its version went up
+  let notice = null;
+  if (j.notice && Number.isInteger(j.notice.version)) {
+    if (j.notice.name !== `${app}-notice-${j.notice.version}.html`) throw new Error('이용 안내 자산 이름이 피드와 다름');
+    notice = { ...j.notice, url: releaseUrl(repo, `download/v${j.version}/${j.notice.name}`) };
+  }
   return {
-    available: true, version: j.version, notes: String(j.notes || ''), needFull, asset: a, full: f || null,
+    available: true, version: j.version, notes: String(j.notes || ''), needFull, asset: a, full: f || null, notice,
     page: releaseUrl(repo, `tag/v${j.version}`),
     assetUrl: releaseUrl(repo, `download/v${j.version}/${a.name}`),
   };
 }
 
+// The new version's notice, verified, laid out in destDir with this program's notice.css /
+// notice.js beside it, so consent.js can show it (consent.ask({ dir: destDir, ... })).
+async function fetchNotice(info, destDir) {
+  const n = info.notice;
+  const html = await download(n.url, 1 << 20);
+  verifyMinisig(html, (await download(`${n.url}.minisig`, 65536)).toString('utf8'), n.name);
+  if (html.length !== n.size || crypto.createHash('sha256').update(html).digest('hex') !== String(n.sha256).toLowerCase()) throw tampered('이용 안내 파일이 피드와 다름');
+  fs.rmSync(destDir, { recursive: true, force: true });
+  fs.mkdirSync(destDir, { recursive: true });
+  fs.writeFileSync(path.join(destDir, 'notice.html'), html);
+  for (const f of ['notice.css', 'notice.js']) fs.copyFileSync(path.join(__dirname, f), path.join(destDir, f));
+  return destDir;
+}
+
 // --------------------------------------------------------------------- apply
 
 // Download + verify + unpack the code-only zip into <stageRoot>\<version>\files.
-async function stage(info, stageRoot) {
-  const zip = await download(info.assetUrl, MAX_APP);
+// onProgress(received, total) while downloading, then onProgress(-1) = checking.
+async function stage(info, stageRoot, onProgress) {
+  const zip = await download(info.assetUrl, MAX_APP, onProgress);
+  if (onProgress) onProgress(-1, 0);
   const sig = await download(`${info.assetUrl}.minisig`, 65536);
-  if (zip.length !== info.asset.size) throw new Error('파일 크기가 피드와 다름');
-  if (crypto.createHash('sha256').update(zip).digest('hex') !== String(info.asset.sha256).toLowerCase()) throw new Error('sha256이 피드와 다름');
+  if (zip.length !== info.asset.size) throw tampered('파일 크기가 피드와 다름');
+  if (crypto.createHash('sha256').update(zip).digest('hex') !== String(info.asset.sha256).toLowerCase()) throw tampered('sha256이 피드와 다름');
   verifyMinisig(zip, sig.toString('utf8'), info.asset.name);
   const dir = path.join(stageRoot, info.version);
   fs.rmSync(dir, { recursive: true, force: true });
@@ -153,7 +187,7 @@ async function stage(info, stageRoot) {
 function handOver(staged, info, opts) {
   const script = path.join(staged.dir, 'apply-update.ps1');
   fs.copyFileSync(path.join(__dirname, 'apply-update.ps1'), script);
-  const backup = path.join(path.dirname(staged.dir), 'previous');
+  const backup = opts.backupDir || path.join(path.dirname(staged.dir), 'previous');
   const ps = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
   const args = ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script,
     '-WaitPid', String(process.pid), '-AppDir', opts.appDir, '-NewDir', staged.files, '-BackupDir', backup,
@@ -185,4 +219,4 @@ function cleanup(stageRoot, version) {
   }
 }
 
-module.exports = { check, stage, handOver, markHealthy, cleanup, verifyMinisig, newer, PUBLIC_KEY };
+module.exports = { check, stage, fetchNotice, handOver, markHealthy, cleanup, verifyMinisig, newer, PUBLIC_KEY };

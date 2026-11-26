@@ -1,8 +1,12 @@
-// consent.js - the first-run notice (user, 2026-11-27): before anything starts, the app
-// says what it does, what it reads, what it keeps and where it connects (notice.html),
-// and runs only after "동의하고 시작". The answer is kept with the notice's version, so a
-// changed notice (version up) is asked again. The overlays in this workspace share this
-// file (same copy in each program); notice.html is each program's own text.
+// consent.js - the notice (이용 안내) the user agrees to (user, 2026-11-27): before anything
+// starts, the app says what it does, what it reads, what it keeps and where it connects
+// (notice.html), and runs only after "동의하고 시작". The agreement is kept with the
+// notice's version (<meta name="notice-version"> in notice.html - the one place it is set):
+//   - first run, or this program's notice is newer than the agreed one -> ask before starting
+//     (with an older version kept aside, "이전 버전으로 되돌리기" is offered instead of quitting)
+//   - an update brings a newer notice -> asked before downloading; not agreed = stay on this version
+// The overlays in this workspace share this file (same copy in each program); notice.html is
+// each program's own text.
 //
 // The window is never focused by itself (the game keeps the keyboard); clicking it works.
 // NOTICE_SHOT=<png>: capture the notice and answer "no" (layout check).
@@ -13,39 +17,48 @@ const { BrowserWindow, ipcMain, screen } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
-let open = null;                      // { win, resolve } while a notice is up
+let open = null;                      // { win, promise } while a notice is up
 
-// -> Promise<boolean>: true = agreed. view: only a 닫기 button, resolves true when closed.
-function ask({ dir, title, view = false }) {
+function noticeVersion(dir) {
+  try {
+    const html = fs.readFileSync(path.join(dir, 'notice.html'), 'utf8');
+    const m = html.match(/<meta\s+name="notice-version"\s+content="(\d+)"/);
+    return m ? Number(m[1]) : 0;
+  } catch { return 0; }
+}
+
+// -> Promise<true | false | 'rollback'>. mode: ask | guard | update | view (see notice.js).
+// dir: the folder holding notice.html (+ notice.css, notice.js) - a downloaded notice too.
+function ask({ dir, title, mode = 'ask', iconDir }) {
   if (open) { open.win.moveTop(); return open.promise; }
   const a = screen.getPrimaryDisplay().workArea;
   const w = Math.min(560, a.width - 40);
   const h = Math.min(700, a.height - 40);
+  const icon = path.join(iconDir || dir, 'icon.png');
   const win = new BrowserWindow({
     width: w, height: h, x: Math.round(a.x + (a.width - w) / 2), y: Math.round(a.y + (a.height - h) / 2),
     show: false, resizable: true, minimizable: false, maximizable: false, alwaysOnTop: true,
-    title, backgroundColor: '#14171d', autoHideMenuBar: true,
-    icon: fs.existsSync(path.join(dir, 'icon.png')) ? path.join(dir, 'icon.png') : undefined,
+    title, backgroundColor: '#14171d', autoHideMenuBar: true, icon: fs.existsSync(icon) ? icon : undefined,
     webPreferences: { preload: path.join(__dirname, 'notice-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.setMenu(null);
   let done = false;
   let resolve;
   const promise = new Promise((r) => { resolve = r; });
-  const finish = (ok) => {
+  const finish = (answer) => {
     if (done) return;
     done = true;
     open = null;
     ipcMain.removeListener('notice', onAnswer);
     if (!win.isDestroyed()) win.destroy();
-    resolve(view ? true : !!ok);
+    resolve(mode === 'view' ? true : answer);
   };
-  const onAnswer = (e, ok) => { if (e.sender === win.webContents) finish(ok); };
+  const onAnswer = (e, answer) => { if (e.sender === win.webContents) finish(answer); };
   ipcMain.on('notice', onAnswer);
   win.on('closed', () => finish(false));         // the X = not agreed
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  win.loadFile(path.join(dir, 'notice.html'), { query: { mode: view ? 'view' : 'ask' } });
+  win.loadFile(path.join(dir, 'notice.html'), { query: { mode } });
   win.once('ready-to-show', async () => {
     win.showInactive();                        // never takes the keyboard from the game by itself
     if (process.env.NOTICE_SHOT) {
@@ -60,4 +73,4 @@ function ask({ dir, title, view = false }) {
   return promise;
 }
 
-module.exports = { ask };
+module.exports = { ask, noticeVersion };

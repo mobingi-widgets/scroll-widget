@@ -290,6 +290,8 @@ document.addEventListener('mousedown', (e) => {
 }, true);
 
 // problems from main.js: the ☰ becomes a red ⚠ and says what is wrong
+// "새로운 업데이트가 있습니다!" in the band: click = the update window
+$('updpill').addEventListener('click', () => window.widget.ui('update-open'));
 let lastProblemList = [];
 let updVersion = '';                   // a newer release (main.js update check): dot on the ☰
 function setProblems(list) {
@@ -909,8 +911,13 @@ window.widget.onFeed((d) => {
       hovering = false;                  // main made the window click-through again; the next move re-asks
     }
   } else if (d.type === 'update') {
+    // a newer release: a dot on the ☰ and the pill (unless skipped); installing is in the
+    // update window it opens (never by itself)
     updVersion = d.version || '';
     setProblems(lastProblemList);
+    const pill = $('updpill');
+    pill.hidden = !d.pill;
+    pill.textContent = d.pill ? `새로운 업데이트가 있습니다! (v${d.version})` : '';
   } else if (d.type === 'menu') {
     blockUntil = d.open ? Infinity : Date.now() + 300;
   }

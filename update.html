@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
+<title>업데이트</title>
+<link rel="stylesheet" href="update.css">
+</head>
+<body>
+<div id="card">
+  <h1 id="title">새 버전이 있습니다</h1>
+  <p id="body"></p>
+  <div id="notes" hidden></div>
+  <div id="prog" hidden>
+    <div class="bar"><span id="fill"></span></div>
+    <div class="nums"><span id="rate"></span><span id="amount"></span></div>
+  </div>
+  <pre id="err" hidden></pre>
+  <div id="row">
+    <button id="skip" class="link" hidden>이 버전 건너뛰기</button>
+    <span class="grow"></span>
+    <button id="b2" class="ghost" hidden></button>
+    <button id="b1" class="primary" hidden></button>
+  </div>
+</div>
+<script src="update.js"></script>
+</body>
+</html>

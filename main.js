@@ -18,83 +18,37 @@ const dockLib = require('./dock');
 const updater = require('./updater');
 const consent = require('./consent');
 
-// The first-run notice (notice.html): nothing starts - no game reads, no window tracking,
-// no update check - until it is agreed to. Raise the version when the notice changes in
-// substance; everyone is asked again then.
-const NOTICE_VERSION = 1;
+// The notice (이용 안내, notice.html - its <meta name="notice-version"> is the version): nothing
+// starts - no game reads, no window tracking, no update check - until it is agreed to.
 const NOTICE_TITLE = '주간 납품 위젯 — 이용 안내';
 let starting = true;                   // the notice may be the only window for a while: do not quit then
 
 // ------------------------------------------------------------------- updates
-// From the GitHub releases of mobingi-widgets/scroll-widget (updater.js: signed, strictly
-// newer only). Checked at start and every 6 h; never installs or restarts by itself - the
-// ☰ gets a dot, a toast says so once, and the menu has "업데이트 … 설치" (user, 2026-11-27).
-// Installing swaps the program files; node_modules, data/ and icons/ stay. A git checkout
-// (the developer's copy) only reports - it is updated with git.
-const UPDATE = { repo: 'scroll-widget', app: 'scroll-widget', everyMs: 6 * 3600 * 1000 };
-const upd = { info: null, error: '', at: 0, busy: false, told: '' };
-const canInstall = () => !fs.existsSync(path.join(__dirname, '.git'));
-const stageRoot = () => path.join(path.dirname(__dirname), '.scroll-widget-update');
-const okFile = () => path.join(app.getPath('userData'), 'update-ok.json');
+// From the GitHub releases of mobingi-widgets/scroll-widget: update-ui.js (the window, the
+// steps, after Scouter Lite's flow) on updater.js (signed, strictly newer only). Never installs
+// or restarts by itself (user, 2026-11-27: they are in the game). Installing swaps the program
+// files; node_modules, data/ and icons/ stay. A git checkout (the developer's copy) only reports.
 const VERSION = require('./package.json').version;
-
-async function checkUpdate() {
-  if (upd.busy) return;
-  upd.busy = true;
-  try {
-    upd.info = await updater.check({ repo: UPDATE.repo, app: UPDATE.app, version: VERSION });
-    upd.error = '';
-  } catch (e) {
-    upd.error = String((e && e.message) || e);
-  } finally {
-    upd.busy = false;
-    upd.at = Date.now();
-    const v = upd.info && upd.info.available ? upd.info.version : null;
-    toPage({ type: 'update', version: v });
-    if (v && upd.told !== v) {
-      upd.told = v;
-      notify({ text: `업데이트 ${v} — ☰에서 설치`, level: 'info', by: '업데이트' });
-    }
-  }
-}
-
-async function installUpdate() {
-  const info = upd.info;
-  if (!info || !info.available || info.needFull || !canInstall() || upd.busy) return;
-  upd.busy = true;
-  try {
-    const staged = await updater.stage(info, stageRoot());
-    updater.handOver(staged, info, {
+const stageRoot = () => path.join(path.dirname(__dirname), '.scroll-widget-update');
+let uui = null;
+function makeUpdateUi() {
+  return require('./update-ui').create({
+    dir: __dirname, repo: 'scroll-widget', app: 'scroll-widget', version: VERSION, title: '주간 납품 위젯',
+    userData: app.getPath('userData'),
+    canInstall: () => !fs.existsSync(path.join(__dirname, '.git')),
+    stageRoot,
+    previousDir: () => path.join(stageRoot(), 'previous'),
+    installOpts: () => ({
       appDir: __dirname, keep: ['node_modules', 'data', 'icons', '.git', '.gitignore', '.gitattributes'],
       launch: path.join(__dirname, 'node_modules', 'electron', 'dist', 'electron.exe'), launchArgs: '.', launchCwd: __dirname,
-      okFile: okFile(), logFile: path.join(app.getPath('userData'), 'update.log'),
-    });
-    app.quit();
-  } catch (e) {
-    upd.error = `설치 안 함 — ${(e && e.message) || e}`;
-    upd.busy = false;
-    pushProblems();
-  }
+    }),
+    cfg: () => cfg, saveCfg, near: () => gameRectDip(),
+    // short messages go to the toast window; the rest to the page (dot, pill)
+    page: (m) => (m.type === 'update-toast' ? notify({ text: m.text, level: m.level, sec: m.sec, by: '업데이트' }) : toPage(m)),
+    quit: () => app.quit(),
+  });
 }
 
-function updateLines() {
-  const i = upd.info;
-  const out = [];
-  if (i && i.available) {
-    const first = i.notes.split('\n').map((s) => s.replace(/^[-*]\s*/, '').trim()).find(Boolean) || '';
-    if (i.needFull) out.push({ label: `⬆ 새 버전 ${i.version} — 전체 설치 필요 (릴리스 페이지 열기)`, click: () => shell.openExternal(i.page) });
-    else if (!canInstall()) out.push({ label: `⬆ 새 버전 ${i.version} — 개발 폴더라 git으로 받기`, enabled: false });
-    else out.push({ label: `⬆ 업데이트 ${i.version} 설치 (위젯 재시작)`, click: installUpdate });
-    if (first) out.push({ label: `   ${first.length > 60 ? first.slice(0, 60) + '…' : first}`, enabled: false });
-    out.push({ label: '   변경 내용 보기 (릴리스 페이지)', click: () => shell.openExternal(i.page) });
-  }
-  const when = upd.at ? `${ago(upd.at / 1000)} 전 확인` : '확인 전';
-  const state = upd.error ? `업데이트 확인 실패 — ${upd.error}` : i && i.none ? `업데이트: 아직 릴리스 없음 · ${when}`
-    : i && !i.available ? `업데이트: 최신 (${VERSION}) · ${when}` : i ? `현재 ${VERSION} · ${when}` : `업데이트: ${when}`;
-  out.push({ label: state, enabled: false });
-  out.push({ label: '업데이트 지금 확인', click: () => checkUpdate() });
-  return out;
-}
 
 let win = null;
 let tray = null;
@@ -172,7 +126,6 @@ function problems() {
   // no game window is not a problem to warn about: the overlay turns into a plain window (appMode)
   if (sync.t && Date.now() / 1000 - sync.t > STALE_SEC) out.push(`갱신 멈춤 (${ago(sync.t)} 전이 마지막)`);
   if (sync.char && sync.char.provisional) out.push(`처음 보는 캐릭터 — 기존 캐릭터인지 확인 필요 (${sync.char.job} · 가방 ${sync.char.weight})`);
-  if (upd.error.startsWith('설치 안 함')) out.push(`업데이트 ${upd.error}`);   // a failed check (offline...) does not nag
   return out;
 }
 
@@ -617,7 +570,7 @@ function buildMenu() {
   return Menu.buildFromTemplate([
     ...syncLines().map((label) => ({ label, enabled: false })),
     { type: 'separator' },
-    ...updateLines(),
+    ...(uui ? uui.menuLines() : []),
     { type: 'separator' },
     { label: '지금 새로고침', click: () => toFeed({ cmd: 'refresh' }) },
     { label: '레시피 다시 읽기', click: () => toFeed({ cmd: 'recipes' }) },
@@ -740,8 +693,9 @@ function createWindow() {
     pushProblems();
     toFeed({ cmd: 'refresh' });
     place();
-    if (upd.info) toPage({ type: 'update', version: upd.info.available ? upd.info.version : null });
-    updater.markHealthy(okFile(), VERSION);      // an update waits for this, else it rolls back
+    if (uui) uui.pageState();
+    // an update waits for this, else it rolls back
+    updater.markHealthy(path.join(app.getPath('userData'), 'update-ok.json'), VERSION);
   });
 }
 
@@ -801,6 +755,8 @@ ipcMain.on('ui', (_e, action, arg) => {
   } else if (action === 'height') {
     const h = Math.max(30, Math.ceil(Number(arg) || 0));   // CSS px; place() applies the zoom
     if (h !== height) { height = h; place(); }
+  } else if (action === 'update-open') {
+    if (uui) uui.show();                // the band's "새로운 업데이트가 있습니다!" pill
   } else if (action === 'expanded') {
     saveCfg({ expanded: !!arg });
   } else if (action === 'sizing') {
@@ -818,10 +774,16 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', () => setShow(cfg.show === 'hidden' ? 'always' : cfg.show));
   app.whenReady().then(async () => {
     cfg = loadCfg();
-    if (!SHOT && (cfg.notice || 0) < NOTICE_VERSION) {
-      const ok = await consent.ask({ dir: __dirname, title: NOTICE_TITLE });
-      if (!ok) { app.quit(); return; }
-      saveCfg({ notice: NOTICE_VERSION, noticeAt: new Date().toISOString() });
+    uui = makeUpdateUi();
+    const noticeV = consent.noticeVersion(__dirname);
+    if (!SHOT && (cfg.notice || 0) < noticeV) {
+      // first run, or this version's notice is newer than the agreed one (e.g. files put over
+      // by hand): ask before anything starts; with the old version kept aside, offer going back
+      const guard = !fs.existsSync(path.join(__dirname, '.git')) && uui.hasPrevious();
+      const answer = await consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: guard ? 'guard' : 'ask' });
+      if (answer === 'rollback') { uui.rollback(); return; }
+      if (answer !== true) { app.quit(); return; }
+      saveCfg({ notice: noticeV, noticeAt: new Date().toISOString(), noticeDeclined: null });
     }
     createTray();
     createWindow();
@@ -838,9 +800,9 @@ if (!app.requestSingleInstanceLock()) {
     setInterval(() => { if (win && !win.isDestroyed() && !appMode && win.isVisible()) dock.publish(win.getBounds()); }, 5000);
     startFeed();
     if (!SHOT) {
-      setTimeout(checkUpdate, 15 * 1000);
-      setInterval(checkUpdate, UPDATE.everyMs);
-      if (canInstall()) setTimeout(() => updater.cleanup(stageRoot(), VERSION), 90 * 1000);
+      uui.start();
+      setTimeout(() => uui.afterStart(), 4000);      // "x.y.z로 업데이트됨" / "되돌렸습니다" once the toasts are up
+      if (!fs.existsSync(path.join(__dirname, '.git'))) setTimeout(() => updater.cleanup(stageRoot(), VERSION), 90 * 1000);
     }
     setInterval(raise, 2000);
     setInterval(pushProblems, 5000);   // notices a stalled feed even when nothing arrives
