@@ -1,0 +1,13 @@
+{
+  "name": "mobingi-scroll-widget",
+  "version": "1.2.0",
+  "private": true,
+  "description": "주간 납품 스크롤 진행 위젯 (읽기 전용)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "45.3.1"
+  }
+}

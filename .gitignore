@@ -1,0 +1,16 @@
+# installed on first run (주간 납품 위젯.bat -> npm install)
+node_modules/
+
+# personal data, logs and caches - never published
+data/
+runs/
+__pycache__/
+*.pyc
+*.log
+*.jsonl
+
+# cut from the game's screen - each user makes their own with icons/extract_glyphs.py
+icons/*.png
+
+# build output (build_dist.py)
+dist/

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
+<title>주간 납품 알림</title>
+<style>
+  /* Same look as the game's own toast (user's reference 2026-11-27): a dark slate
+     pill, plain white text centred, no icon, no outline. Importance shows only as a
+     small dot in front - none for info, yellow for warn, red (with ×) for action. */
+  :root { --warn: #f0b13a; --action: #ef5a4a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  body { font: 400 13.5px/1.45 "Malgun Gothic", "Segoe UI", system-ui, sans-serif; color: #fff; user-select: none; }
+  #stack { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 4px; }
+  body.bottom #stack { flex-direction: column-reverse; }
+  .toast {
+    display: flex; align-items: center; justify-content: center; gap: 7px; max-width: 100%;
+    padding: 9px 22px; border-radius: 16px;
+    background: rgba(36, 40, 50, .93);
+    box-shadow: 0 2px 10px rgba(0,0,0,.25);
+    opacity: 0; transform: translateY(-6px); transition: opacity .25s, transform .25s;
+  }
+  body.bottom .toast { transform: translateY(6px); }
+  .toast.in { opacity: 1; transform: none; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; display: none; }
+  .warn .dot { display: block; background: var(--warn); }
+  .action .dot { display: block; background: var(--action); }
+  .text { white-space: normal; word-break: keep-all; text-align: center; }
+  .count { font-size: 11.5px; color: #b9bfcc; margin-left: 3px; }
+  .action { padding-right: 10px; }
+  .close {
+    flex: none; width: 20px; height: 20px; border: 0; border-radius: 10px; cursor: pointer; margin-left: 4px;
+    background: rgba(255,255,255,.12); color: #fff; font: inherit; font-size: 12px; line-height: 20px; padding: 0;
+  }
+  .close:hover { background: var(--action); }
+  .more { font-size: 11px; color: #b9bfcc; text-align: center; }
+</style>
+</head>
+<body>
+<div id="stack"></div>
+<script src="toast.js"></script>
+</body>
+</html>

@@ -1,0 +1,225 @@
+{
+ "format": 2,
+ "note": "게임 데이터 (개인 정보 없음). 주간 납품 스크롤 품목 목록 - 위젯이 소유. 바꿀 땐 widget.py catalog 명령으로.",
+ "scroll_prefix": "제작 스크롤: ",
+ "quest_suffix": " 만들기",
+ "scrolls_per_week": 3,
+ "quests_per_item": 1,
+ "default_goal": 6,
+ "top_level": 37,
+ "account_location": "account_storage",
+ "route": [
+  "티르코네일",
+  "던바튼",
+  "콜헨",
+  "반호르",
+  "이멘마하"
+ ],
+ "towns": {
+  "티르코네일": "티르",
+  "던바튼": "던바",
+  "콜헨": "콜헨",
+  "반호르": "반호",
+  "이멘마하": "이멘"
+ },
+ "skills": {
+  "대장 기술": {
+   "abbr": "대장",
+   "icon": "blacksmith"
+  },
+  "목공": {
+   "abbr": "목공",
+   "icon": "carpentry"
+  },
+  "매직 크래프트": {
+   "abbr": "매직",
+   "icon": "magic"
+  },
+  "중갑 제작": {
+   "abbr": "중갑",
+   "icon": "heavy"
+  },
+  "경갑 제작": {
+   "abbr": "경갑",
+   "icon": "light"
+  },
+  "천옷 제작": {
+   "abbr": "천옷",
+   "icon": "cloth"
+  },
+  "핸디크래프트": {
+   "abbr": "핸디",
+   "icon": "handicraft"
+  }
+ },
+ "items": {
+  "론 엣지소드S": {
+   "skill": "대장 기술",
+   "town": "반호르",
+   "goal": 6,
+   "shared": false
+  },
+  "크레센트 엣지소드": {
+   "skill": "대장 기술",
+   "town": "던바튼",
+   "goal": 6,
+   "shared": false
+  },
+  "라이트 크로스보우S": {
+   "skill": "목공",
+   "town": "반호르",
+   "goal": 6,
+   "shared": false
+  },
+  "그랜드 크로스보우": {
+   "skill": "목공",
+   "town": "던바튼",
+   "goal": 6,
+   "shared": false
+  },
+  "로터스 힐링 완드": {
+   "skill": "매직 크래프트",
+   "town": "던바튼",
+   "goal": 6,
+   "shared": false
+  },
+  "마블 힐링 완드S": {
+   "skill": "매직 크래프트",
+   "town": "반호르",
+   "goal": 6,
+   "shared": false
+  },
+  "사슬 갑옷 신발": {
+   "skill": "중갑 제작",
+   "town": "콜헨",
+   "goal": 6,
+   "shared": false
+  },
+  "비늘 갑옷 신발S": {
+   "skill": "중갑 제작",
+   "town": "이멘마하",
+   "goal": 6,
+   "shared": false
+  },
+  "두꺼운 가죽 갑옷 신발": {
+   "skill": "경갑 제작",
+   "town": "콜헨",
+   "goal": 6,
+   "shared": false
+  },
+  "가죽 갑옷 신발S": {
+   "skill": "경갑 제작",
+   "town": "이멘마하",
+   "goal": 6,
+   "shared": false
+  },
+  "두꺼운 전투복 신발": {
+   "skill": "천옷 제작",
+   "town": "콜헨",
+   "goal": 6,
+   "shared": false
+  },
+  "전투복 신발S": {
+   "skill": "천옷 제작",
+   "town": "이멘마하",
+   "goal": 6,
+   "shared": false
+  },
+  "전문 캠프파이어 키트": {
+   "skill": "핸디크래프트",
+   "town": "티르코네일",
+   "goal": 9,
+   "shared": true
+  },
+  "마법 유탄 부품": {
+   "skill": "핸디크래프트",
+   "town": "티르코네일",
+   "goal": 30,
+   "shared": true
+  }
+ },
+ "not_storable": {
+  "연금술 부스러기": "계정 창고 불가 — 본캐가 마법 유탄 부품을 만들어 넘기거나 보조가 각자 보유"
+ },
+ "byproducts": {
+  "돌멩이": "석탄·철 광석·동 광석 채집 부산물",
+  "나뭇가지": "상급 통나무+ 채집 부산물"
+ },
+ "alter_recipes": {
+  "합금강괴": {
+   "per_work": 3,
+   "inputs": {
+    "강철괴": 3,
+    "동 광석": 15,
+    "석탄": 8
+   },
+   "seconds": 3000,
+   "facility": "금속 가공 시설"
+  },
+  "강철괴": {
+   "per_work": 3,
+   "inputs": {
+    "철괴": 3,
+    "석탄": 4
+   },
+   "seconds": 300,
+   "facility": "금속 가공 시설"
+  },
+  "철괴": {
+   "per_work": 3,
+   "inputs": {
+    "철 광석": 10
+   },
+   "seconds": 30,
+   "facility": "금속 가공 시설",
+   "work": "철괴(철 광석)"
+  },
+  "상급 목재": {
+   "per_work": 3,
+   "inputs": {
+    "상급 통나무": 15,
+    "나무 진액": 8,
+    "목재+": 3
+   },
+   "seconds": 3000,
+   "facility": "목재 가공 시설"
+  },
+  "상급 가죽": {
+   "per_work": 3,
+   "inputs": {
+    "상급 생가죽": 15,
+    "타닌 가루": 8,
+    "가죽+": 3
+   },
+   "seconds": 3000,
+   "facility": "가죽 가공 시설"
+  },
+  "옷감": {
+   "per_work": 3,
+   "inputs": {
+    "양털": 10
+   },
+   "seconds": 45,
+   "facility": "옷감 가공 시설"
+  },
+  "옷감+": {
+   "per_work": 3,
+   "inputs": {
+    "옷감": 3,
+    "양털": 4
+   },
+   "seconds": 360,
+   "facility": "옷감 가공 시설"
+  },
+  "상급 옷감": {
+   "per_work": 3,
+   "inputs": {
+    "옷감+": 3,
+    "상급 양털": 15,
+    "양털": 8
+   },
+   "seconds": null,
+   "facility": "옷감 가공 시설"
+  }
+ }
+}

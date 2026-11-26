@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
+<title>주간 납품</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="left">
+<div id="root">
+  <div class="head">
+    <span id="toggle" class="pill brown hit" title="자세히 / 접기">납품 <span id="chev">▾</span></span>
+    <span id="charpill" class="pill teal hit">–</span>
+    <span id="modepill" class="pill">창 모드</span>
+    <span id="menu" class="pill grip hit" title="메뉴 — 동기화 정보 · 새로고침 · 위치 이동 · 표시 · 종료">☰</span>
+  </div>
+
+  <div class="band" id="band">
+    <div class="line title" id="title">
+      <span class="dia">◆</span> 주간 <span id="title-count" class="num">–</span>
+      <span id="segs" class="segs"></span>
+    </div>
+    <div id="chips-status" class="chips"></div>
+    <div id="chips-towns" class="chips"></div>
+    <div id="chips-skills" class="chips"></div>
+    <div id="banners"></div>
+    <div id="toasts"></div>
+    <div id="note" class="line note-line"></div>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="ptabs" id="ptabs">
+      <button class="hit on" data-tab="items" title="품목별: 판매 마을 · 진행 단계 · 재료 · 보고">품목</button>
+      <button class="hit" data-tab="chars" title="캐릭터별 구매 · 사용 · 보고, 마을별">캐릭</button>
+      <button class="hit" data-tab="mats" title="남은 제작의 직속 재료 합계 (창고 포함)">재료</button>
+      <button class="hit" data-tab="skills" title="생활 스킬 레벨 · 경험치 (계정 공유)">스킬</button>
+      <button class="hit" data-tab="runs" title="오늘 실행된 제작 · 채집 · 개조">기록</button>
+    </div>
+    <div id="tab-items" class="tab on"></div>
+    <div id="tab-chars" class="tab"></div>
+    <div id="tab-mats" class="tab"></div>
+    <div id="tab-skills" class="tab"></div>
+    <div id="tab-runs" class="tab"></div>
+  </div>
+  <div id="sizer" class="hit" title="끌기: 최대 높이 정하기 (넘치면 목록이 스크롤) · 두 번 클릭: 제한 없음"></div>
+</div>
+<script src="renderer.js"></script>
+</body>
+</html>
