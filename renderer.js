@@ -415,10 +415,11 @@ function headWidth() {
   // its natural width: when the room is short the header squeezes its pills to fit, so their
   // widths as shown never tell; measured at max-content for a moment (same frame - not painted)
   const head = document.querySelector('.head');
-  const was = head.style.width;
+  const was = [head.style.width, head.style.maxWidth];
   head.style.width = 'max-content';
+  head.style.maxWidth = 'none';            // style.css caps it at the room (a pill shortens with …)
   const w = head.getBoundingClientRect().width;
-  head.style.width = was;
+  [head.style.width, head.style.maxWidth] = was;
   return w;
 }
 function headRoom() {

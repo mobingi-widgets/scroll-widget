@@ -59,7 +59,11 @@ body.wbar-right #wlabel { right: 14px; }
 .num { font-variant-numeric: tabular-nums; }
 
 /* pill tabs like 추천 / 퀘스트 + */
-.head { display: flex; gap: 3px; justify-content: flex-end; }
+.head { display: flex; gap: 3px; justify-content: flex-end; max-width: 100%; }
+/* a pill never wraps onto a second line; one shortens with … only if the width bar's minimum
+   (headNeeds) no longer holds - e.g. a longer character name after the overlay was narrowed */
+.head .pill { white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+#charpill { flex-shrink: 1; }                     /* only the name gives way, not 납품 or the ☰ */
 .pill {
   padding: 0 9px; border-radius: 8px 8px 0 0; font-size: 11px; line-height: 17px; color: var(--white);
   background: rgba(30, 34, 40, .75);
