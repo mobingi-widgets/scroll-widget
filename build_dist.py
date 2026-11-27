@@ -42,7 +42,8 @@ NAME = "주간 납품 위젯"
 APP_ID = "scroll-widget"
 INCLUDE_EXT = {".js", ".html", ".css", ".py", ".json", ".md", ".bat", ".png", ".ps1"}
 SKIP_DIRS = {"node_modules", "data", "__pycache__", ".git"}
-SKIP_FILES = {"package-lock.json"}
+SKIP_FILES = {"package-lock.json",
+              "AGENTS.md", "CLAUDE.md"}      # instructions for AI agents in the workspace - never shipped
 KEY_LIKE = re.compile(r"(\.pem$|\.key$|minisign|\.credentials)", re.I)
 
 
