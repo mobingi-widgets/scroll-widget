@@ -157,10 +157,10 @@ function create(o) {
   function menuItems() {
     const s = settings();
     return [
-      { type: 'toggle', id: 'toast', label: '알림 (토스트)', on: s.on, tip: '게임 창 위에 뜨는 알림 켜기·끄기' },
+      { type: 'toggle', id: 'toast', label: '알림 (토스트)', on: s.on },
       { type: 'segment', id: 'toast-pos', label: '알림 위치', disabled: !s.on,
         options: [['top', '위'], ['center', '가운데'], ['bottom', '아래']].map(([id, l]) => ({ id, label: l, on: s.pos === id })) },
-      { type: 'segment', id: 'toast-min', label: '알림 등급', tip: '모두 · 주의 이상 · 행동이 필요할 때만',
+      { type: 'segment', id: 'toast-min', label: '알림 등급',
         options: [['info', '모두'], ['warn', '주의'], ['action', '행동']].map(([id, l]) => ({ id, label: l, on: s.min === id })) },
       { type: 'item', id: 'toast-test', label: '시험 알림 띄우기', disabled: !s.on },
     ];

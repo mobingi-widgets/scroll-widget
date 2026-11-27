@@ -36,9 +36,9 @@ function render(m) {
   if (m.phase === 'available' || m.phase === 'idle') {
     t.textContent = '새 버전이 있습니다';
     let body = `${next} 버전으로 업데이트할 수 있습니다. (지금 v${m.current})`;
-    if (m.noticeChanged) body += '\n이 버전은 이용 안내가 바뀌었습니다 — 업데이트 전에 다시 확인하고 동의해야 합니다.';
-    if (m.needFull) body += `\n큰 업데이트입니다 (프로그램 전체, 약 ${m.fullMb} MB) — 릴리스 페이지에서 새로 받아 설치합니다.`;
-    if (!m.canInstall && !m.needFull) body += '\n개발 폴더에서 실행 중이라 여기서는 설치하지 않습니다 (git으로 받기).';
+    if (m.noticeChanged) body += '\n이용 안내가 바뀌어 업데이트 전에 다시 동의해야 합니다.';
+    if (m.needFull) body += `\n프로그램 전체(약 ${m.fullMb} MB)를 릴리스 페이지에서 새로 받아야 합니다.`;
+    if (!m.canInstall && !m.needFull) body += '\n개발 폴더라 여기서는 설치하지 않습니다.';
     $('body').textContent = body;
     // the CHANGELOG section, without markdown marks (**bold**, `code`)
     if (m.notes) { $('notes').hidden = false; $('notes').textContent = m.notes.replace(/\*\*|`/g, ''); }
@@ -47,7 +47,7 @@ function render(m) {
     buttons(go, { text: '나중에', act: 'later' }, true);
   } else if (m.phase === 'notice') {
     t.textContent = '바뀐 이용 안내';
-    $('body').textContent = `${next}의 이용 안내를 따로 열었습니다. 동의하면 업데이트를 이어 가고, 동의하지 않으면 지금 버전(v${m.current})을 그대로 씁니다.`;
+    $('body').textContent = `${next}의 바뀐 이용 안내를 열었습니다. 동의하지 않으면 지금 버전을 그대로 씁니다.`;
     buttons(null, null, false);
   } else if (['preparing', 'downloading', 'verifying', 'installing'].includes(m.phase)) {
     t.textContent = m.phase === 'installing' ? '설치 중' : '업데이트 다운로드 중';
@@ -74,13 +74,13 @@ function render(m) {
     buttons(null, null, false);
   } else if (m.phase === 'kept') {
     t.textContent = '지금 버전을 그대로 씁니다';
-    $('body').textContent = `바뀐 이용 안내에 동의하지 않아 v${m.current}을(를) 그대로 씁니다. 다시 볼 때는 ☰ 메뉴의 새 버전 줄을 누르세요.`;
+    $('body').textContent = `v${m.current}을(를) 그대로 씁니다. 다시 보려면 ☰ 메뉴의 새 버전 줄을 누릅니다.`;
     buttons({ text: '닫기', act: 'close', cls: 'primary green' }, null, false);
   } else if (m.phase === 'error') {
     t.textContent = '업데이트 실패';
     t.className = 'bad';
     $('body').textContent = m.tampered
-      ? '받은 파일의 서명이나 내용이 맞지 않습니다 — 파일이 변조되었거나 손상되었을 수 있어 설치하지 않았습니다.'
+      ? '받은 파일의 서명이 맞지 않아 설치하지 않았습니다.'
       : '업데이트 중 오류가 발생했습니다. 나중에 다시 시도해주세요.';
     $('err').hidden = false;
     $('err').textContent = m.error || '';

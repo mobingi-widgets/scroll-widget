@@ -273,7 +273,7 @@ function create(o) {
       out.push({
         type: 'item', id: 'upd-show', label: `업데이트 v${i.version}`, badge: declined ? 'warn' : 'dot',
         value: declined ? '이용 안내 동의 필요' : c.skipVersion === i.version ? '건너뜀' : '',
-        tip: declined ? '바뀐 이용 안내에 동의하지 않아 지금 버전을 쓰는 중 — 눌러서 다시 보기' : '업데이트 창 열기 (변경 내용 · 설치)',
+        tip: declined ? '바뀐 이용 안내에 동의하지 않아 지금 버전을 씁니다' : undefined,
       });
     }
     const when = st.at ? `${Math.max(0, Math.round((Date.now() - st.at) / 60000))}분 전` : '';
@@ -281,9 +281,9 @@ function create(o) {
     out.push({
       type: 'item', id: 'upd-check', label: st.checking ? '확인 중...' : '업데이트 확인', disabled: st.checking,
       value: [state, when].filter(Boolean).join(' · '),
-      tip: st.error ? `업데이트 확인 실패: ${st.error}` : 'GitHub 릴리스를 지금 확인합니다',
+      tip: st.error ? `업데이트 확인 실패: ${st.error}` : undefined,
     });
-    out.push({ type: 'toggle', id: 'upd-auto', label: '자동 업데이트 확인', on: c.autoCheck !== false, tip: '켤 때와 6시간마다 확인 (설치는 늘 직접)' });
+    out.push({ type: 'toggle', id: 'upd-auto', label: '자동 업데이트 확인', on: c.autoCheck !== false, tip: '켤 때와 6시간마다 확인합니다' });
     return out;
   }
   // -> keep the menu open?

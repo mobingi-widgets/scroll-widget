@@ -77,7 +77,6 @@ function townChip(t) {
     title: t.town, sub: `${t.total}종 · 게시판`,
     rows: [['구매', `${t.bought}/${t.want}`, t.bought >= t.want ? 'good' : 'bad'], ['사용', `${t.used}/${t.want}`, t.used >= t.want ? 'good' : 'warn']],
     table: t.left.length ? { head: ['더 살 것', '구매'], align: ['l', 'r'], rows: t.left.map(([i, n]) => [[i, 'it'], [`${n}/${PER}`, 'bad']]) } : null,
-    note: '빨강 = 덜 삼 · 노랑 = 다 샀고 덜 씀 · 초록 = 다 씀',
   });
 }
 
@@ -234,9 +233,8 @@ function wingsChip() {
     more: {
       table: { head: ['캐릭터', '오늘', '잔액'], align: ['l', 'r', 'r'],
         rows: W.chars.map((x) => [(x.current ? '◆ ' : '') + x.name, [sign(x.net), x.net >= 0 ? 'good' : 'bad'], fmt(x.balance)]) },
-      note: (W.reset ? '' : '하루 경계: 게임 일일 초기화 시각 미정 → 자정으로 계산 (☰ → 날개 하루 기준)\n') +
-        '1분마다 잔액을 비교 — 그 사이 획득·사용이 겹치면 상쇄, 획득처는 구분 못 함.\n' +
-        '에이전트 = 실행 기록의 유료 명령(그 사이 실제로 줄어든 양까지). 부재 중 = 이 캐릭터를 안 보던 동안 바뀐 양.',
+      note: (W.reset ? '' : '하루 경계 미정 — 자정으로 셉니다 (☰ → 날개 하루)\n') +
+        '같은 1분 안의 획득과 사용은 서로 상쇄됩니다',
     },
   });
   return ch;
@@ -322,9 +320,8 @@ function setProblems(list) {
   m.textContent = bad ? '⚠' : '☰';
   m.classList.toggle('warn', bad);
   m.classList.toggle('upd', !!updVersion);
-  m.title = (bad ? list.map((p) => '⚠ ' + p).join('\n') : '메뉴 — 동기화 정보 · 새로고침 · 위치 초기화 · 표시 · 종료') +
-    (updVersion ? `\n⬆ 새 버전 ${updVersion} — 메뉴에서 설치` : '') +
-    '\n\n클릭: 메뉴 · 드래그: 위치 옮기기 (가장자리에 붙음 · 다른 오버레이는 피함)';
+  m.title = [...(bad ? list.map((p) => '⚠ ' + p) : []), ...(updVersion ? [`새 버전 ${updVersion}`] : []),
+    '클릭: 메뉴 · 끌기: 위치 옮기기'].join('\n');
 }
 
 // The open list is cut to the height limit and scrolls instead. main.js sends room = { h:
@@ -386,7 +383,7 @@ const wsizer = $('wsizer');
 let defWidth = 278;
 function setWidthTip(w, def) {
   if (def) defWidth = def;
-  setTip(wsizer, { lines: [`너비 ${w}px — 끌기: 너비 바꾸기 (게임 창의 40%까지, 다른 오버레이 앞에서 멈춤)`, `두 번 클릭: 기본 너비 ${defWidth}px`] });
+  setTip(wsizer, { lines: [`너비 ${w}px`, '끌기: 너비 바꾸기', `두 번 클릭: 기본 너비 (${defWidth}px)`] });
 }
 function headNeeds() {
   const head = document.querySelector('.head');
@@ -546,11 +543,11 @@ function drawOverall() {
   $('title-count').textContent = done ? '100% ✓' : `${pc}%`;
   $('title-count').classList.toggle('unsure', unsure);
   $('title').classList.toggle('complete', done && !unsure);
-  $('title').title = `이번 주 전체 ${pc}% — 캐릭터 ${o.seen}/${o.target}명 기록됨\n` +
-    `보고 ${fmt(o.reported)}/${fmt(o.report_want)}건 (캐릭터 × 14종 × 품목당 ${o.quests_per_item}건)\n` +
-    `전제 조건: 스크롤 구매 ${fmt(o.bought)}/${fmt(o.want)} · 사용 ${fmt(o.used)}/${fmt(o.want)}\n` +
-    `(보고한 퀘스트만 셈 — 구매·사용은 쉬워서 완료율에서 뺌 · 내림이라 하나라도 남으면 100%가 안 됨)` +
-    (unsure ? `\n? = 품목당 퀘스트 수 미확인 — 스크롤 1장당 1건(품목당 ${o.quests_per_item}건)으로 계산 중` : '');
+  $('title').title = `이번 주 ${pc}% — 캐릭터 ${o.seen}/${o.target}명\n` +
+    `보고 ${fmt(o.reported)}/${fmt(o.report_want)}건\n` +
+    `구매 ${fmt(o.bought)}/${fmt(o.want)} · 사용 ${fmt(o.used)}/${fmt(o.want)}\n` +
+    '완료율은 보고한 퀘스트로만 셉니다' +
+    (unsure ? `\n? = 품목당 퀘스트 수 미확인 (${o.quests_per_item}건으로 계산)` : '');
 
   const segs = $('segs');
   segs.replaceChildren();
@@ -564,8 +561,8 @@ function drawOverall() {
     f.className = 'segfill ' + (r >= 1 ? 'green' : r > 0 ? 'yellow' : '');
     seg.appendChild(f);
     seg.title = c
-      ? `${c.name}${c.current ? ' (접속 중)' : ''} ${charPct(c)}% — 보고 ${c.reported}/${c.report_want}건\n전제 조건: 구매 ${c.bought}/${c.want} · 사용 ${c.used}/${c.want}`
-      : '아직 이번 주에 본 적 없는 캐릭터 — 접속하면 자동으로 잡힙니다';
+      ? `${c.name}${c.current ? ' (접속 중)' : ''} ${charPct(c)}% — 보고 ${c.reported}/${c.report_want}건\n구매 ${c.bought}/${c.want} · 사용 ${c.used}/${c.want}`
+      : '이번 주에 아직 접속하지 않은 캐릭터';
     segs.appendChild(seg);
   }
 }
@@ -775,9 +772,7 @@ function matsTabLabel() {
   if (!b) return;
   const target = snap && snap.overall ? snap.overall.target : 1;
   b.textContent = matsMode === 'all' ? '재료·전' : '재료·나';
-  b.title = (matsMode === 'all'
-    ? `${target}캐릭 전체의 남은 퀘스트 — 본캐가 캘 것 · 계정 창고로 옮길 것`
-    : '접속 캐릭터의 남은 퀘스트 · 그 캐릭터 가방·창고 + 계정 창고') + '\n열린 상태에서 한 번 더 누르면 전환';
+  b.title = (matsMode === 'all' ? `${target}캐릭 전체` : '접속 캐릭터') + '\n열린 탭을 다시 누르면 전환';
 }
 
 function drawMats() {
@@ -789,10 +784,10 @@ function drawMats() {
   if (!mats.length) { box.appendChild(el('div', 'empty', '남은 재료 없음')); return; }
   const t = el('table');
   const h = el('tr');
-  for (const [txt, cls, tip] of [['재료', '', '·n = 쓰는 품목 수 · ↳ = 위 재료를 개조할 때 드는 하위 재료'],
-    ['필요', 'r', '접속 캐릭터의 남은 퀘스트 × 직속 재료 → 상위 재료 보유·개조 진행 중을 먼저 빼고 하위로 전개 (최악 기준)'],
-    ['보유', 'r', '접속 캐릭터 가방·캐릭터 창고 + 계정 창고'],
-    ['할 일', 'r', '−n = 부족 (캐거나 사야 함) · 개조 n = 개조 횟수 · ✓⏳ = 개조 진행분이 들어오면 충족']]) {
+  for (const [txt, cls, tip] of [['재료', '', '·n = 쓰는 품목 수 · ↳ = 위 재료의 개조 재료'],
+    ['필요', 'r', '대성공 없는 최악 기준'],
+    ['보유', 'r', '가방 · 캐릭터 창고 · 계정 창고'],
+    ['할 일', 'r', '−n = 부족 · 개조 n = 개조 횟수 · ✓⏳ = 개조가 끝나면 충족']]) {
     const th = el('th', cls, txt);
     th.title = tip;
     h.appendChild(th);
@@ -807,19 +802,18 @@ function drawAllMats(box) {
   if (!A) { box.appendChild(el('div', 'empty', '레시피 읽는 중')); return; }
   // who the main is, when its bag was last seen, how many characters are unseen:
   // header tooltips, not rows of their own
-  const mainState = A.main_live ? '접속 중 — 지금 읽음'
-    : A.main_seen ? `마지막 확인 ${String(A.main_seen).slice(5, 16)} (접속 중이 아니면 못 읽음)`
-      : '아직 못 봄 — 본캐로 한 번 접속하면 기억함, 그 전엔 0으로 셈';
+  const mainState = A.main_live ? '접속 중'
+    : A.main_seen ? `마지막 확인 ${String(A.main_seen).slice(5, 16)}`
+      : '아직 못 봄 — 그동안 0으로 셉니다';
   const t = el('table');
   const h = el('tr');
   for (const [txt, cls, tip] of [
-    ['재료', '', '·n = 쓰는 품목 수 · ◆ = 본캐가 전원 몫 일괄 제작하는 공유 품목 · ↳ = 위 재료를 개조할 때 드는 하위 재료\n' +
-      '상위 재료의 보유·개조 진행분을 먼저 빼고, 남은 부족분만 하위로 전개 (한 장부)'],
-    ['필요', 'r', `모든 캐릭터(${A.target}명)의 남은 퀘스트 × 직속 재료, 최악 기준` +
-      (A.unseen ? `\n미확인 ${A.unseen}명 = 아직 이번 주에 본 적 없는 캐릭터, 14종 전부 남은 것으로 셈` : '')],
+    ['재료', '', '·n = 쓰는 품목 수 · ◆ = 본캐가 전원 몫을 만드는 품목 · ↳ = 위 재료의 개조 재료'],
+    ['필요', 'r', `${A.target}명 전체 · 대성공 없는 최악 기준` +
+      (A.unseen ? `\n이번 주에 아직 안 본 ${A.unseen}명은 14종 모두 남은 것으로 셉니다` : '')],
     ['계정', 'r', '계정 창고 — 보조는 여기 것만 씀'],
     [A.main_live || A.main_seen ? '본캐' : '본캐?', 'r', `본캐 ${A.main}: 가방 + 캐릭터 창고\n${mainState}`],
-    ['할 일', 'r', '−n = 부족 (캐거나 사야 함) · →n = 본캐 가방 → 계정 창고로 옮기기 · ? = 본캐 보유 미확인 · 제작 n = 본캐가 만들 횟수']]) {
+    ['할 일', 'r', '−n = 부족 · →n = 본캐 가방에서 계정 창고로 · ? = 본캐 보유 미확인 · 제작 n = 본캐 제작 횟수']]) {
     const th = el('th', cls, txt);
     th.title = tip;
     h.appendChild(th);
@@ -829,9 +823,9 @@ function drawAllMats(box) {
   for (const p of A.pooled) {
     const tr = el('tr', 'pooled');
     const n = el('td', 'it nw', `◆ ${p.item.split(' ').pop()}`);   // last word; the full name is in the tooltip
-    n.title = `${p.item}: 본캐가 전원 몫을 일괄 제작해 계정 창고로 (1회 ${p.per}개)`;
+    n.title = `${p.item} — 본캐가 전원 몫을 만듭니다 (1회 ${p.per}개)`;
     const todo = p.crafts ? el('td', 'r hot nw', `제작 ${p.crafts}`) : el('td', 'r good', '✓');
-    todo.title = p.crafts ? `${fmt(p.want - p.made)}개 더 — 제작 ${p.crafts}회 (대성공 없이 최악)` : '이미 충분';
+    todo.title = p.crafts ? `${fmt(p.want - p.made)}개 더 — 제작 ${p.crafts}회` : '이미 충분';
     tr.append(n, el('td', 'r', fmt(p.want)), el('td', 'r', fmt(p.account)), el('td', 'r', A.main_live || A.main_seen ? fmt(p.main) : '?'), todo);
     t.appendChild(tr);
   }
@@ -850,7 +844,7 @@ function ledgerRow(r, mode, mainKnown) {
   if (r.level) n.style.paddingLeft = `${2 + r.level * 4}px`;
   const why = [`필요 ${fmt(r.need)}`];
   if (r.direct) why.push(`  직속 ${fmt(r.direct)}` + (mode === 'all' ? ` (본캐 몫 ${fmt(r.need_main - Object.values(r.from_parents).reduce((a, b) => a + b, 0))} · 보조 몫 ${fmt(r.need_alt)})` : ''));
-  for (const [p, q] of Object.entries(r.from_parents)) why.push(`  ${p} 개조에 ${fmt(q)} (${p}의 보유·진행 중을 뺀 부족분만)`);
+  for (const [p, q] of Object.entries(r.from_parents)) why.push(`  ${p} 개조에 ${fmt(q)}`);
   why.push(`공급: ${mode === 'all' ? `계정 ${fmt(r.account)} · 본캐 ${mainKnown ? fmt(r.main) : '?'}` : `보유 ${fmt(r.main + r.account)}`}` +
     (r.incoming ? ` · 개조 진행 중 +${fmt(r.incoming)}` : ''));
   if (r.not_storable) why.push('계정 창고 불가 — 본캐 보유분만 셈');
@@ -864,19 +858,19 @@ function ledgerRow(r, mode, mainKnown) {
   if (r.alter_runs) {
     todo = el('td', 'r hot nw', `개조 ${r.alter_runs}${r.alter_known ? '' : '?'}`);
     todo.title = `부족 ${fmt(r.short)} → 개조 ${r.alter_runs}회` + (r.facility ? ` (${r.facility}` + (r.alter_secs ? `, 약 ${hms(r.alter_secs)}` : '') + ')' : '') +
-      (r.alter_known ? '\n투입 재료는 아래 ↳ 줄' : '\n투입 재료 미측정 — 하위 재료를 셀 수 없음 (widget.py catalog recipe)');
+      (r.alter_known ? '' : '\n투입 재료를 아직 몰라 하위 재료가 빠졌습니다');
   } else if (r.short && r.unsure) {
     todo = el('td', 'r hot nw', `−${fmt(r.short)}?`);
-    todo.title = `부족 ${fmt(r.short)}? — 본캐 가방·창고를 아직 못 봐서 0으로 셈, 본캐로 한 번 접속하면 정확해짐`;
+    todo.title = `부족 ${fmt(r.short)}? — 본캐 보유를 아직 몰라 0으로 셉니다`;
   } else if (r.short) {
     todo = el('td', 'r bad nw', `−${fmt(r.short)}`);
-    todo.title = `부족 ${fmt(r.short)} — 캐거나 사야 함`;
+    todo.title = `부족 ${fmt(r.short)}`;
   } else if (r.move) {
     todo = el('td', 'r hot nw', `→${fmt(r.move)}`);
-    todo.title = `본캐 가방 → 계정 창고로 ${fmt(r.move)}개 옮기기 (보조가 쓰도록)`;
+    todo.title = `본캐 가방에서 계정 창고로 ${fmt(r.move)}개`;
   } else if (r.incoming && r.need > r.account + r.main) {
     todo = el('td', 'r good nw', '✓⏳');
-    todo.title = `개조 진행 중인 ${fmt(r.incoming)}개가 들어오면 충족`;
+    todo.title = `개조 중인 ${fmt(r.incoming)}개가 끝나면 충족`;
   } else todo = el('td', 'r good', '✓');
   if (r.move && (r.short || r.alter_runs)) { todo.textContent += ` →${fmt(r.move)}`; todo.title += `\n본캐 가방 → 계정 창고 ${fmt(r.move)}`; }
   if (r.hint && r.short && !r.alter_runs) todo.title += `\n${r.hint}`;
@@ -984,7 +978,7 @@ window.widget.onFeed((d) => {
     toast(d.text, d.sec, d.by);
   } else if (d.type === 'mode') {
     document.body.classList.toggle('app', !!d.app);
-    $('modepill').title = '게임 창을 찾지 못해 일반 창으로 바뀌었습니다 — 윗줄을 끌어 옮기기 · 게임이 켜지면 오버레이로 돌아감';
+    $('modepill').title = '게임 창이 없어 일반 창으로 표시합니다\n게임이 켜지면 오버레이로 돌아갑니다';
   } else if (d.type === 'room') {
     room = { h: d.h, game: d.game, max: d.max };
     fitTab();

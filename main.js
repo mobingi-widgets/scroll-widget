@@ -584,23 +584,23 @@ function menuItems() {
   items.push({ type: 'sep' });
   items.push(...(uui ? uui.menuItems() : []));
   items.push({ type: 'sep' });
-  items.push({ type: 'item', id: 'refresh', label: '지금 새로고침', tip: '게임에서 지금 다시 읽습니다 (무료 조회)' });
-  items.push({ type: 'item', id: 'recipes', label: '레시피 다시 읽기', tip: '제작 레시피를 다시 읽습니다 (보통 30분마다)' });
+  items.push({ type: 'item', id: 'refresh', label: '지금 새로고침' });
+  items.push({ type: 'item', id: 'recipes', label: '레시피 다시 읽기', tip: '보통 30분마다 읽습니다' });
   items.push({ type: 'sep' });
   if (appMode) items.push({ type: 'item', id: 'minimize', label: '창 최소화' });
-  items.push({ type: 'item', id: 'reset-pos', label: '위치 초기화', tip: '옮기기는 ☰를 끌어서 (가장자리에 붙고 다른 오버레이는 피함)' });
+  items.push({ type: 'item', id: 'reset-pos', label: '위치 초기화', tip: '옮기려면 ☰를 끕니다' });
   items.push({ type: 'segment', id: 'align', label: '정렬', options: [['left', '왼쪽'], ['right', '오른쪽']].map(([id, l]) => ({ id, label: l, on: cfg.align === id })) });
   items.push({
-    type: 'segment', id: 'show', label: '표시', tip: '숨기면 트레이 아이콘으로 다시 표시',
+    type: 'segment', id: 'show', label: '표시', tip: '숨기면 트레이 아이콘으로 다시 표시합니다',
     options: [['always', '항상'], ['game', '게임 앞'], ['hidden', '숨김']].map(([id, l]) => ({ id, label: l, on: cfg.show === id })),
   });
   items.push({
-    type: 'segment', id: 'wings', label: '날개 하루', tip: '정령의 날개 일별 증감의 하루 경계 — 게임 일일 초기화 시각 (미정 = 자정)',
+    type: 'segment', id: 'wings', label: '날개 하루', tip: '날개 증감의 하루 경계 (게임 일일 초기화 시각)',
     options: [[null, '미정'], ['05:00', '5시'], ['06:00', '6시'], ['07:00', '7시'], ['09:00', '9시']].map(([id, l]) => ({ id: id || '', label: l, on: (sync.wingsReset || null) === id })),
   });
   items.push(...(toast ? toast.menuItems() : []));      // 알림 · 알림 위치 · 알림 등급 · 시험 알림
   items.push({
-    type: 'segment', id: 'font', label: '글자', tip: '오버레이·툴팁·메뉴·알림·업데이트 창·이용 안내의 글자 크기 (게임 창 크기에 맞춘 배율 위에)',
+    type: 'segment', id: 'font', label: '글자',
     options: [['small', '작게'], ['mid', '중간'], ['large', '크게']].map(([id, label]) => ({ id, label, on: cfg.font === id })),
   });
   items.push({
