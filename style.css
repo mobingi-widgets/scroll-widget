@@ -284,6 +284,18 @@ body.area.moving.blocked #area { border-color: var(--red); }
 body.area.moving #root { outline: none; }
 body.area #sizer { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; }
 body.area #wsizer { display: block; position: fixed; top: 0; bottom: 0; }
+/* the second width bar, on the anchored side (user 2026-11-27): over the game while that edge is not
+   on the game window's edge (body.wboth, main.js). It lies over the content's edge - 76px at the
+   area's middle - and like the other bar takes the mouse only while shown. */
+#wsizer2 { display: none; position: fixed; top: 0; bottom: 0; width: 8px; pointer-events: none; z-index: 3; }
+body.area.wboth #wsizer2 { display: block; }
+body.wbar-left #wsizer2 { right: 0; }
+body.wbar-right #wsizer2 { left: 0; }
+#wsizer2 .grab { left: 0; top: 50%; width: 8px; height: min(76px, 100%); transform: translateY(-50%); cursor: ew-resize; }
+#wsizer2 .grab::after { left: 1px; top: 50%; width: 3px; height: min(44px, calc(100% - 8px)); transform: translateY(-50%); }
+body.wbar-left #wsizer2 .grab::after { left: 4px; }
+body.wsizing2 #wsizer2 .grab { pointer-events: auto; opacity: 1; }
+body.wsizing2 #wsizer2 .grab::after { background: var(--yellow); }
 body.up #root { flex-direction: column-reverse; }
 body.area.up #root { position: fixed; left: 0; right: 0; bottom: 0; padding: 6px 0 2px; }
 body.area.up.wbar-left #root { padding-left: 8px; }

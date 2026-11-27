@@ -164,7 +164,7 @@ document.addEventListener('mousemove', (e) => {
 // moves do not reach a click-through window while the game, run as administrator, is in front)
 window.watchHitRects('.hit, .chip, [data-tip], .tipm, #panel', (list) => window.widget.ui('hits', list), '#panel');
 // where the size bars show (what is drawn + their strips; main.js decides from the cursor)
-window.watchHitRects('.head .pill, #updpill, #band, #panel, #sizer, #wsizer', (list) => window.widget.ui('near', list), { inert: true });
+window.watchHitRects('.head .pill, #updpill, #band, #panel, #sizer, #wsizer, #wsizer2', (list) => window.widget.ui('near', list), { inert: true });
 // the whole area (over the game): once near, the bars stay while the pointer is anywhere in it
 window.watchHitRects('#area', (list) => window.widget.ui('keep', list), { inert: true });
 window.addEventListener('mouseout', (e) => { if (!e.relatedTarget) { setHover(false); tipFor(null); } });   // left the window
@@ -394,7 +394,7 @@ const wsizer = $('wsizer');
 let defWidth = 278;
 function setWidthTip(w, def) {
   if (def) defWidth = def;
-  setTip(wsizer, { lines: [`너비 ${w}px`, '끌기: 너비 바꾸기', `두 번 클릭: 기본 너비 (${defWidth}px)`] });
+  for (const b of [wsizer, $('wsizer2')]) setTip(b, { lines: [`너비 ${w}px`, '끌기: 너비 바꾸기', `두 번 클릭: 기본 너비 (${defWidth}px)`] });
 }
 // The header's pills side by side (CSS px), and the room the overlay gives it. The header row is
 // only as wide as its pills (it is not stretched across the overlay), so the room comes from #root
@@ -419,27 +419,31 @@ function headRoom() {
 function headNeeds() {
   return Math.ceil(headWidth() + (window.innerWidth - headRoom()) + 4);   // + what is beside the header
 }
-wsizer.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0 || blocked()) return;
-  e.preventDefault();
-  try { e.target.setPointerCapture(e.pointerId); } catch { /* not capturable */ }   // the .grab; events bubble here
-  tipFor(null);
-  document.body.classList.add('wsizing');
-  window.widget.ui('width-drag', { on: true, min: headNeeds() });
-  const done = () => {
-    wsizer.removeEventListener('pointerup', done);
-    wsizer.removeEventListener('pointercancel', done);
-    document.body.classList.remove('wsizing');
-    window.widget.ui('width-drag', { on: false });
-    blockUntil = wsizerBlock = Date.now() + 300;
-  };
-  wsizer.addEventListener('pointerup', done);
-  wsizer.addEventListener('pointercancel', done);
-});
 // double-click = the default width. Its own release just set the short click block (blockUntil =
-// wsizerBlock) - that one must not swallow it (until 1.6.1 / 1.4.3 the reset never happened)
+// wsizerBlock) - that one must not swallow it (until 1.6.1 / 1.4.3 the reset never happened).
+// Two bars (user 2026-11-27): #wsizer on the free side, #wsizer2 on the anchored side (over the
+// game, while that edge is not on the game window's edge - main.js moves that edge instead).
 let wsizerBlock = 0;
-wsizer.addEventListener('dblclick', () => { if (!blocked() || blockUntil === wsizerBlock) window.widget.ui('width-reset'); });
+for (const [bar, edge, cls] of [[wsizer, 'free', 'wsizing'], [$('wsizer2'), 'anchored', 'wsizing2']]) {
+  bar.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || blocked()) return;
+    e.preventDefault();
+    try { e.target.setPointerCapture(e.pointerId); } catch { /* not capturable */ }   // the .grab; events bubble here
+    tipFor(null);
+    document.body.classList.add(cls);
+    window.widget.ui('width-drag', { on: true, min: headNeeds(), edge });
+    const done = () => {
+      bar.removeEventListener('pointerup', done);
+      bar.removeEventListener('pointercancel', done);
+      document.body.classList.remove(cls);
+      window.widget.ui('width-drag', { on: false });
+      blockUntil = wsizerBlock = Date.now() + 300;
+    };
+    bar.addEventListener('pointerup', done);
+    bar.addEventListener('pointercancel', done);
+  });
+  bar.addEventListener('dblclick', () => { if (!blocked() || blockUntil === wsizerBlock) window.widget.ui('width-reset'); });
+}
 new ResizeObserver(() => {
   fitTab();
   placeBubble();
@@ -990,6 +994,7 @@ window.widget.onFeed((d) => {
     document.body.classList.toggle('wbar-left', d.wside === 'left');
     document.body.classList.toggle('wbar-right', d.wside !== 'left');
     document.body.classList.toggle('up', d.valign === 'bottom');      // content at the area's bottom
+    document.body.classList.toggle('wboth', !!d.wboth);              // the anchored side's width bar too
     placeBubble();                       // the ☰ may have moved to the other end
     if (d.width) setWidthTip(d.width, d.defWidth);
   } else if (d.type === 'width') {

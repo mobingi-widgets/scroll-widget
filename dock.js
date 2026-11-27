@@ -347,4 +347,4 @@ function create(opts) {
     widthStart, widthEnd, widthActive: () => !!wdrag, heightStart, heightEnd, heightActive: () => !!hdrag };
 }
 
-module.exports = { create, areaRect };
+module.exports = { create, areaRect, GAP };
