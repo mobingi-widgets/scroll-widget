@@ -51,7 +51,7 @@ function makeUpdateUi() {
     // short messages go to the toast window (if toasts are off: dropped, as before); the rest to the page
     page: (m) => { if (m.type !== 'update-toast' || !notify({ text: m.text, level: m.level, sec: m.sec, by: '업데이트' })) toPage(m); },
     quit: () => app.quit(),
-    zoom: () => zoom,                  // the update window reads at the overlay's text size
+    zoom: () => baseZoom,                  // the update window reads at the overlay's text size
   });
 }
 
@@ -93,7 +93,7 @@ const WIDTH_STRIP = 8;
 // v5 (1.5.0): the window is the area the user set (dock.areaRect) - align + dx + width + fy +
 // maxH as before describe it with the content at its top (valign 'top'), the same picture as
 // the content-sized window had; fyb = its bottom edge once the content sits at the bottom
-const DEFAULTS = { width: 270 + WIDTH_STRIP, align: 'left', ...POS.left, valign: 'top', fyb: 0.9, show: 'always', opacity: 1, expanded: false, v: 5, scale: 100, text: 100,
+const DEFAULTS = { width: 270 + WIDTH_STRIP, align: 'left', ...POS.left, valign: 'top', fyb: 0.9, show: 'always', opacity: 1, expanded: false, v: 5, scale: 100, text: 100, lockShrink: false,
   toast: { on: true, pos: 'top', min: 'info' } };
 // 배율 % and 글자 % (user 2026-11-27, 1.6.0 - people play at different in-game UI scales):
 // - 배율 (cfg.scale) times the zoom that follows the game window's size; every window of this
@@ -112,6 +112,7 @@ const stepped = (v, r, def) => {
 const WIDTH_MAX_OF_GAME = 0.4;   // the width bar stops at 40% of the game window
 const REF_GAME_HEIGHT = 680;     // DIP height the CSS sizes were set for; larger game windows zoom up
 const STALE_SEC = 90;            // no snapshot for this long = syncing has stalled
+let baseZoom = 1;   // the zoom at the user's own 배율 (toasts, the update window, the notice - not shrunk)
 let zoom = 1;
 const CFG_PATH = () => path.join(app.getPath('userData'), 'overlay.json');
 
@@ -125,6 +126,7 @@ function loadCfg() {
   if (saved.scale == null && saved.font) c.scale = FONT_TO_SCALE[saved.font] || 100;    // 1.5.x 글자 -> 배율
   c.scale = stepped(c.scale, SCALE, 100);
   c.text = stepped(c.text, TEXT, 100);
+  c.lockShrink = c.lockShrink === true;              // 잠금 때 작게: off unless turned on
   delete c.font;
   // 1.4.0 and before (v3): no strip for the width bar yet
   if ((saved.v || 0) < 4 && typeof saved.width === 'number') c.width = saved.width + WIDTH_STRIP;
@@ -391,7 +393,7 @@ function setRoom(r) {
 const widthSide = () => (appMode || cfg.align !== 'right' ? 'right' : 'left');
 function windowState() {
   return { type: 'window', expanded: !!cfg.expanded, align: cfg.align, wside: widthSide(), width: cfg.width, defWidth: DEFAULTS.width,
-    valign: appMode ? 'top' : cfg.valign, wboth: anchoredFree(), text: cfg.text };
+    valign: appMode ? 'top' : cfg.valign, wboth: anchoredFree(), text: effText() };
 }
 // edge 'anchored' (user 2026-11-27): the bar on the anchored side, over the game - that edge moves
 // with the cursor and the free one stays, so dx changes with the width; it stops at the game
@@ -431,10 +433,20 @@ function widthDrag(on, min, edge) {
   });
 }
 
+// 잠금 때 [그대로 | 작게] (user 2026-11-27, 1.7.0): while locked, the overlay at the smallest 배율 and 글자 - an
+// override only: cfg.scale / cfg.text keep the user's values (on disk, in the menus, the tray's lists), so a
+// quit while locked comes back at them. Already at the smallest: nothing changes. The 🔓 shows on the
+// full-size list (lock.shrunk() is off from the unlock on).
+const shrunk = () => !!(cfg.lockShrink && lock && lock.shrunk() && !appMode);
+const effScale = () => (shrunk() ? Math.min(cfg.scale, SCALE.min) : cfg.scale);
+const effText = () => (shrunk() ? Math.min(cfg.text, TEXT.min) : cfg.text);
+
 function place() {
   if (!win || win.isDestroyed() || isDragging()) return;
   const g = gameRectDip();
-  const z = (g ? Math.max(0.75, Math.min(1.6, g.height / REF_GAME_HEIGHT)) : 1) * (cfg.scale / 100);
+  const gz = g ? Math.max(0.75, Math.min(1.6, g.height / REF_GAME_HEIGHT)) : 1;
+  baseZoom = gz * (cfg.scale / 100);
+  const z = gz * (effScale() / 100);                 // (the smallest while locked with 잠금 때 작게)
   if (Math.abs(z - zoom) > 0.01) {
     zoom = z;
     win.webContents.setZoomFactor(zoom);
@@ -756,6 +768,10 @@ function menuItems() {
   items.push({ type: 'stepper', id: 'scale', label: '배율', value: cfg.scale, unit: '%', ...SCALE, tip: '위젯·메뉴·말풍선 전체 크기' });
   items.push({ type: 'stepper', id: 'text', label: '글자', value: cfg.text, unit: '%', ...TEXT, tip: '위젯·툴팁의 글자만' });
   items.push({
+    type: 'segment', id: 'lockshrink', label: '잠금 때', tip: '작게: 잠긴 동안 배율·글자를 가장 작게 줄입니다',
+    options: [['off', '그대로'], ['on', '작게']].map(([id, label]) => ({ id, label, on: !!cfg.lockShrink === (id === 'on') })),
+  });
+  items.push({
     type: 'segment', id: 'opacity', label: '투명도',
     options: [1, 0.9, 0.8, 0.7, 0.6].map((o) => ({ id: String(o), label: String(Math.round(o * 100)), on: Math.abs((cfg.opacity || 1) - o) < 0.01 })),
   });
@@ -778,7 +794,7 @@ function menuItems() {
 // -> keep the menu open (the line changed in place)?
 function menuAct(id, opt) {
   if (id.startsWith('upd-')) return uui ? uui.menuAct(id) : false;
-  if (id.startsWith('lock')) return lock ? lock.menuAct(id, opt) : false;
+  if (id.startsWith('lock-')) return lock ? lock.menuAct(id, opt) : false;   // lock-release (the tray, while locked)
   switch (id) {
     case 'refresh': refreshNow(); return false;
     case 'recipes': toFeed({ cmd: 'recipes' }); return false;
@@ -794,8 +810,9 @@ function menuAct(id, opt) {
     // (the open menu keeps its size until it closes; the value changes in place)
     case 'scale': saveCfg({ scale: stepped(opt, SCALE, cfg.scale) }); place(); return true;
     case 'text': saveCfg({ text: stepped(opt, TEXT, cfg.text) }); toPage(windowState()); return true;
+    case 'lockshrink': saveCfg({ lockShrink: opt === 'on' }); place(); toPage(windowState()); return true;
     case 'opacity': setOpacity(Number(opt)); return true;
-    case 'notice': consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: 'view', zoom, avoid: overlayRects }); return false;
+    case 'notice': consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: 'view', zoom: baseZoom, avoid: overlayRects }); return false;
     case 'quit': app.quit(); return false;
     default: return false;
   }
@@ -1013,7 +1030,7 @@ if (!app.requestSingleInstanceLock()) {
     toast = toastLib.create({
       dir: __dirname, title: '주간 납품 알림', source: '위젯',
       settings: () => cfg.toast, save: (p) => saveCfg({ toast: { ...cfg.toast, ...p } }),
-      gameRect: gameRectDip, gameVisible, zoom: () => zoom, always: !!SHOT,
+      gameRect: gameRectDip, gameVisible, zoom: () => baseZoom, always: !!SHOT,
     });
     createTipWindow();
     // 잠금 (lock.js): off the list 3 s -> dimmed, the mouse passes; shake on it to unlock
@@ -1022,6 +1039,7 @@ if (!app.requestSingleInstanceLock()) {
       enabled: () => cfg.lock === true, save: (on) => saveCfg({ lock: on }),
       appMode: () => appMode,
       blocked: () => !!(ctx && ctx.isOpen()) || isDragging() || sizing || typing,
+      onState: () => { if (cfg.lockShrink) { place(); toPage(windowState()); } },   // 잠금 때 작게
       opacity: () => cfg.opacity || 1, side: () => (cfg.align === 'right' ? 'right' : 'left'),
     });
     // click-through from the cursor position (hitpoll.js) - not from forwarded mouse moves, which

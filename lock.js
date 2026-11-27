@@ -68,7 +68,8 @@ const inRect = (p, r, m = 0) => !!r && p.x >= r.x - m && p.y >= r.y - m && p.x <
 //          appMode: () => a plain window (no game) - never locks,
 //          blocked: () => something of ours is open over it (the ☰ menu, a window) - never locks,
 //          opacity: () => the 투명도 setting, side: () => 'left' | 'right' (the small 🔒's corner),
-//          toPage: (obj) => ..., ipc?: ipcMain, now?: () => ms })
+//          toPage: (obj) => ..., ipc?: ipcMain, now?: () => ms,
+//          onState?: ('open' | 'locked' | 'unlocking') => ... - on every change of state })
 function create(o) {
   const now = o.now || (() => Date.now());
   let state = 'open';       // 'open' | 'locked' | 'unlocking'
@@ -114,11 +115,15 @@ function create(o) {
   }
 
   function to(s) {
+    const was = state;
     state = s;
     hint = s === 'locked' ? hint : 'none';
     leftAt = null;
     onAt = null;
     shake.reset();
+    // main.js shrinks the overlay while locked (잠금 때 작게, 1.10.0 / 1.7.0): in the same step as the
+    // dimming (look() follows in this sample), and back to full size the moment it unlocks
+    if (s !== was && o.onState) o.onState(s);
   }
 
   // every poll (hitpoll.js): the cursor point
@@ -196,6 +201,7 @@ function create(o) {
   return {
     sample, setBound, unlock, toggle, topItems, menuAct,
     locked: () => state !== 'open',
+    shrunk: () => state === 'locked',            // (not while the 🔓 shows: that is on the full-size list)
     state: () => ({ state, hint, wiggle }),
   };
 }
