@@ -954,7 +954,8 @@ if (!app.requestSingleInstanceLock()) {
     uui = makeUpdateUi();
     if (process.env.MOBINGI_UPDATE_SELFTEST) { await uui.selfTest(process.env.MOBINGI_UPDATE_SELFTEST); return; }
     const noticeV = consent.noticeVersion(__dirname);
-    if (!SHOT && !DEMO && (cfg.notice || 0) < noticeV) {
+    // (a test run over a stand-in game - FAKE_GAME, own settings folder - never puts the notice on the screen)
+    if (!SHOT && !DEMO && !FAKE_GAME && (cfg.notice || 0) < noticeV) {
       // first run, or this version's notice is newer than the agreed one (e.g. files put over
       // by hand): ask before anything starts; with the old version kept aside, offer going back
       const guard = !fs.existsSync(path.join(__dirname, '.git')) && uui.hasPrevious();
