@@ -6,28 +6,36 @@ body.locked #root { opacity: var(--lock-dim, .5); transition: opacity .25s; }
 #lockhint {
   position: fixed; z-index: 1000; pointer-events: none;
   display: flex; flex-direction: column; align-items: center; gap: 6px;
-  padding: 14px 18px 12px; border: 1px solid rgba(255,255,255,.16); border-radius: 14px;
-  background: rgba(16,19,25,.94); box-shadow: 0 6px 22px rgba(0,0,0,.5);
   color: #f2eee6; font: 600 13px/1.35 "Malgun Gothic", "Segoe UI", system-ui, sans-serif; white-space: nowrap;
 }
 #lockhint[hidden] { display: none; }
-/* locked, the hints show through like the list, a little less: the list is at half the window's
-   opacity, the card about 1.1 x that and its 🔒 and words 1.4 x - a touch crisper than the card, so
-   they read over the rows under it (user 2026-11-27, 1.9.1 - no solid card over the dimmed list).
-   The 🔓 moment stays solid (the window at full opacity then, the list back to normal). */
-#lockhint.big, #lockhint.small { background: rgba(16,19,25,.56); border-color: rgba(255,255,255,.1); box-shadow: 0 4px 14px rgba(0,0,0,.25); }
-#lockhint.big .lk, #lockhint.big .lt, #lockhint.small .lk { opacity: .72; }
-/* the big one: no card - a soft ellipse, a touch darker than the card was at its middle, fading to
-   nothing well inside its box, so no edge or box shape shows (user 2026-11-27, 1.9.2) */
+/* No card anywhere (user 2026-11-27): each hint sits on a soft ellipse, a touch darker at its middle,
+   fading to nothing well inside its box, so no edge or box shape shows (1.9.2; the small one and the
+   🔓 too, 1.9.3). Locked, the list is at half the window's opacity; the 🔒 and words 1.4 x that, a
+   touch crisper than the background so they read over the rows under them (1.9.1). */
+#lockhint .lk, #lockhint .lt { opacity: .72; }
+#lockhint .lk { font-size: 34px; line-height: 1; font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif; }
 #lockhint.big {
-  padding: 24px 50px 22px; border-color: transparent; box-shadow: none;
+  padding: 24px 50px 22px;
   background: radial-gradient(ellipse closest-side at center, rgba(16,19,25,.64) 0%, rgba(16,19,25,.58) 42%, rgba(16,19,25,.3) 72%, rgba(16,19,25,0) 100%);
 }
-#lockhint .lk { font-size: 34px; line-height: 1; font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif; }
-#lockhint.unlock .lt { display: none; }
-#lockhint.small { box-sizing: border-box; justify-content: center; padding: 0 4px; gap: 0; border-radius: 6px; }
+/* the small one covers the ☰ (it cannot be clicked while locked): darker at its middle, so the ☰
+   under it does not show through */
+#lockhint.small {
+  box-sizing: border-box; justify-content: center; padding: 0; gap: 0;
+  background: radial-gradient(ellipse closest-side at center, rgba(16,19,25,.8) 0%, rgba(16,19,25,.66) 55%, rgba(16,19,25,0) 100%);
+}
 #lockhint.small .lk { font-size: 12px; }
 #lockhint.small .lt { display: none; }
+/* unlocking: the 🔓 takes the 🔒's place on the same background (big or small - lock-ui.js keeps
+   the shape), the words make way, then the whole fades out within the 0.6 s the 🔓 shows; the list
+   eases back to its normal look meanwhile (#root's transition) */
+#lockhint.unlock .lt { visibility: hidden; }
+#lockhint.unlock { animation: lock-out .6s ease-in forwards; }
+@keyframes lock-out {
+  0%, 30% { opacity: 1; }
+  100% { opacity: 0; }
+}
 
 /* the switch, first in the header: a fixed 20 px tab (글자 % leaves it), the padlock drawn in lines -
    off = dim and open, on = bright and closed */

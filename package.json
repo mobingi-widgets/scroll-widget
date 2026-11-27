@@ -1,6 +1,6 @@
 {
   "name": "mobingi-scroll-widget",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "private": true,
   "description": "주간 납품 스크롤 진행 위젯 (읽기 전용)",
   "main": "main.js",

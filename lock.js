@@ -95,17 +95,16 @@ function create(o) {
     return { x: b.x + l * z, y: b.y + t * z, width: (r - l) * z, height: (btm - t) * z };
   }
 
-  // the window's opacity and what the page shows. Locked, the window keeps the 투명도 and the page
-  // halves the list; the 🔒 hints show through about as much (lock.css: 1.2 x the list's - user
-  // 2026-11-27, 1.9.1: a solid card over the dimmed list defeated the point). Only the 🔓 moment is
-  // drawn with the window at full opacity and the list at its normal look. A plain window (no game)
-  // is main's.
+  // the window's opacity and what the page shows. The window always keeps the 투명도; locked, the
+  // page halves the list and the 🔒 hints show through about as much (lock.css - user 2026-11-27,
+  // 1.9.1: a solid card over the dimmed list defeated the point). Unlocking, the list eases back to
+  // its normal look in the page while the 🔓 takes the 🔒's place on the same soft background and
+  // fades out (1.9.3: no window opacity jump, no card). A plain window (no game) is main's.
   function look() {
     const plain = o.appMode();
     const op = Number(o.opacity()) || 1;
-    const bright = state === 'unlocking';
-    const winOp = plain ? null : bright ? 1 : op;
-    const dim = plain ? 1 : state === 'locked' ? (op * DIM) / winOp : state === 'unlocking' ? op / winOp : 1;
+    const winOp = plain ? null : op;
+    const dim = plain ? 1 : state === 'locked' ? DIM : 1;
     const msg = { type: 'lock', on: !!o.enabled(), state, hint, wiggle, dim: Math.round(dim * 1000) / 1000, side: o.side() };
     const key = JSON.stringify([winOp, msg]);
     if (key === sent) return;

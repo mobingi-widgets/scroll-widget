@@ -4,7 +4,7 @@
 //   big   - centred on the list, with how to unlock; wiggles with each shake swing
 //   small - a small 🔒 on the ☰ (data-small; it cannot be clicked while locked anyway), else in
 //           the list's top corner - the list stays readable
-//   🔓    - the moment it unlocks
+//   🔓    - the moment it unlocks: in the 🔒's place on the same soft background, fading out
 // The hint never takes the mouse (the window passes it through while locked anyway).
 // The switch (user 2026-11-27): a padlock button put first in the header (data-button) - a line
 // drawing, not the 🔒 emoji (on a post line that means "암호 있음"): dim and open = off, bright
@@ -113,8 +113,10 @@
     document.body.classList.toggle('locked', locked);
     document.body.style.setProperty('--lock-dim', String(locked ? d.dim : 1));
     const kind = d.state === 'unlocking' ? 'unlock' : locked ? d.hint : 'none';
+    // unlocking keeps the shape the hint had - the 🔓 in the 🔒's place, big or small on the ☰ (1.9.3)
+    const wasSmall = !el.hidden && el.classList.contains('small');
     el.hidden = kind === 'none';
-    el.className = kind;
+    el.className = kind === 'unlock' ? `unlock ${wasSmall ? 'small' : 'big'}` : kind;
     icon.textContent = kind === 'unlock' ? '🔓' : '🔒';
     place();
     if (kind === 'big' && d.wiggle !== was.wiggle) {
