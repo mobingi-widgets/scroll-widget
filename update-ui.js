@@ -102,8 +102,11 @@ function create(o) {
     if (st.checking) { if (manual) st.manualWaiting = true; return; }
     st.checking = true;
     try {
-      st.info = await updater.check({ repo: o.repo, app: o.app, version: o.version });
+      st.info = await updater.check({ repo: o.repo, app: o.app, version: o.version, lastRepo: cfg().feedRepo });
       st.error = '';
+      // found somewhere else through the directory (feeds/apps.json): look there first next time
+      const found = st.info && st.info.repo;
+      if (found && (found === o.repo ? cfg().feedRepo : found !== cfg().feedRepo)) o.saveCfg({ feedRepo: found === o.repo ? null : found });
     } catch (e) {
       st.error = String((e && e.message) || e);
     } finally {

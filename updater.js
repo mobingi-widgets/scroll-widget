@@ -3,6 +3,8 @@
 //
 // Feed (stable releases only):
 //   https://github.com/mobingi-widgets/<repo>/releases/latest/download/latest.json (+ .minisig)
+// If that is not found (404 - the repository renamed or made again elsewhere), the signed directory
+// mobingi-widgets/feeds -> apps.json says where the app's releases are now (findRepo; remembered).
 // Every downloaded file is trusted only after these checks, all of which must pass:
 //   - HTTPS, and every redirect hop on HOSTS
 //   - a minisign signature (algorithm ED) by PUBLIC_KEY: key id pinned, both signatures valid,
@@ -115,21 +117,48 @@ function verifyMinisig(data, sigText, expectName) {
 
 function releaseUrl(repo, rest) { return `https://github.com/${ORG}/${repo}/releases/${rest}`; }
 
-// -> { available: false } | { available: true, version, notes, needFull, asset, full, page }
-async function check({ repo, app, version }) {
-  const base = releaseUrl(repo, 'latest/download/');
-  let feed;
-  try {
-    feed = await download(`${base}latest.json`, MAX_FEED);
-  } catch (e) {
-    if (e.notFound) return { available: false, none: true };   // nothing released yet
-    throw e;
+// The directory of where each app's releases are (user 2026-11-27): a repository that is never
+// renamed, mobingi-widgets/feeds, keeps a signed apps.json as its latest release's asset:
+//   { "v": 1, "apps": { "<app id>": { "repo": "<repository name>" }, ... } }
+// Asked only when an app's own feed is not found (404: its repository renamed or made again under
+// another name) - never on a network error or a server error, so usually never. Same hosts as the
+// feeds, signed by the same key (file:apps.json in the trusted comment).
+const DIRECTORY_REPO = 'feeds';
+async function findRepo(app) {
+  const base = releaseUrl(DIRECTORY_REPO, 'latest/download/');
+  const data = await download(`${base}apps.json`, MAX_FEED);
+  verifyMinisig(data, (await download(`${base}apps.json.minisig`, 65536)).toString('utf8'), 'apps.json');
+  const j = JSON.parse(data.toString('utf8'));
+  const e = j && j.v === 1 && j.apps && j.apps[app];
+  const repo = e && typeof e.repo === 'string' && /^[A-Za-z0-9._-]{1,100}$/.test(e.repo) ? e.repo : null;
+  if (!repo) throw new Error('안내판에 이 앱이 없음');
+  return repo;
+}
+
+// -> { available: false, repo } | { available: true, version, notes, needFull, asset, full, page, repo }
+// repo = where the feed was found (the app remembers it: lastRepo next time, still verified every time)
+async function check({ repo, app, version, lastRepo }) {
+  const tried = [];
+  for (const r of [lastRepo, repo]) {
+    if (!r || tried.includes(r)) continue;
+    try { return await checkRepo(r, app, version); } catch (e) { if (!e.notFound) throw e; }
+    tried.push(r);
   }
+  // not where it should be: the directory says where it is now
+  let moved;
+  try { moved = await findRepo(app); } catch (e) { if (e.notFound) return { available: false, none: true }; throw e; }
+  if (tried.includes(moved)) return { available: false, none: true };   // nothing released yet
+  try { return await checkRepo(moved, app, version); } catch (e) { if (e.notFound) return { available: false, none: true }; throw e; }
+}
+
+async function checkRepo(repo, app, version) {
+  const base = releaseUrl(repo, 'latest/download/');
+  const feed = await download(`${base}latest.json`, MAX_FEED);      // 404 -> notFound, for check()
   const sig = await download(`${base}latest.json.minisig`, 65536);
   verifyMinisig(feed, sig.toString('utf8'), 'latest.json');
   const j = JSON.parse(feed.toString('utf8'));
   if (j.schema !== 1 || j.app !== app || !parseVer(j.version)) throw new Error('피드 내용이 이 앱 것이 아님');
-  if (!newer(j.version, version)) return { available: false, latest: j.version };
+  if (!newer(j.version, version)) return { available: false, latest: j.version, repo };
   const a = j.assets && j.assets.app;
   const f = j.assets && j.assets.full;
   if (!a || a.name !== `${app}-${j.version}-app.zip`) throw new Error('자산 이름의 버전이 피드와 다름');
@@ -146,6 +175,7 @@ async function check({ repo, app, version }) {
     available: true, version: j.version, notes: String(j.notes || ''), needFull, asset: a, full: f || null, notice,
     page: releaseUrl(repo, `tag/v${j.version}`),
     assetUrl: releaseUrl(repo, `download/v${j.version}/${a.name}`),
+    repo,
   };
 }
 
