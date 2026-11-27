@@ -397,19 +397,27 @@ function setWidthTip(w, def) {
   if (def) defWidth = def;
   setTip(wsizer, { lines: [`너비 ${w}px`, '끌기: 너비 바꾸기', `두 번 클릭: 기본 너비 (${defWidth}px)`] });
 }
-function headNeeds() {
+// The header's pills side by side (CSS px), and the room the overlay gives it. The header row is
+// only as wide as its pills (it is not stretched across the overlay), so the room comes from #root
+// - measured from the header itself, the width bar's minimum was always the current width + 4 and
+// the overlay could never be made narrower (until 1.6.1 / 1.4.4).
+function headWidth() {
+  // its natural width: when the room is short the header squeezes its pills to fit, so their
+  // widths as shown never tell; measured at max-content for a moment (same frame - not painted)
   const head = document.querySelector('.head');
-  const cs = getComputedStyle(head);
-  const gap = parseFloat(cs.columnGap) || parseFloat(cs.gap) || 0;
-  let need = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
-  let n = 0;
-  for (const c of head.children) {
-    if (c.offsetParent === null) continue;            // hidden
-    need += c.getBoundingClientRect().width;
-    n += 1;
-  }
-  need += gap * Math.max(0, n - 1);
-  return Math.ceil(need + (window.innerWidth - head.getBoundingClientRect().width) + 4);
+  const was = head.style.width;
+  head.style.width = 'max-content';
+  const w = head.getBoundingClientRect().width;
+  head.style.width = was;
+  return w;
+}
+function headRoom() {
+  const root = $('root');
+  const cs = getComputedStyle(root);
+  return root.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+}
+function headNeeds() {
+  return Math.ceil(headWidth() + (window.innerWidth - headRoom()) + 4);   // + what is beside the header
 }
 wsizer.addEventListener('pointerdown', (e) => {
   if (e.button !== 0 || blocked()) return;
