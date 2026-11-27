@@ -38,7 +38,7 @@ import catalog  # noqa: E402
 import paths  # noqa: E402
 import weekly_scrolls as ws  # noqa: E402
 
-VERSION = "1.4.2"
+VERSION = "1.4.3"
 EDITS = paths.data("widget_edits.jsonl")
 NOTIFY = paths.data("widget_notify.jsonl")   # queue: the overlay reads lines added after it started
 LEVELS = ("info", "warn", "action")

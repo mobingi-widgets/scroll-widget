@@ -32,7 +32,10 @@ body {
    content (8px beside it, 9px under it), 3px off it, yellow while hovered or dragged. Only the line and a little around it
    (.grab) takes the mouse; the rest of the strip lets clicks through to the game (1.4.1: the width
    bar lay on the panel's edge, and both took clicks along their whole length). */
-.grab { position: absolute; pointer-events: auto; touch-action: none; }
+/* shown only while the pointer is near (body.bars from main.js, user 2026-11-27) or during a drag;
+   hidden = no mouse either (the strips must not take clicks unseen) */
+.grab { position: absolute; pointer-events: none; touch-action: none; opacity: 0; transition: opacity .15s; }
+body.bars .grab, body.sizing #sizer .grab, body.wsizing #wsizer .grab { pointer-events: auto; opacity: 1; }
 .grab::after { content: ''; position: absolute; border-radius: 2px; background: rgba(255,255,255,.22); box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
 .grab:hover::after, body.sizing #sizer .grab::after, body.wsizing #wsizer .grab::after { background: var(--yellow); }
 /* the width bar: a strip on the edge away from the anchored side, beside the band and panel (not the tabs) */

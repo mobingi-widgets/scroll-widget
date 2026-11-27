@@ -82,18 +82,13 @@ function add(m) {
   else { waiting.push(m); drawMore(); report(); }
 }
 
-// clicks pass through to the game except over the close button
-let hovering = false;
-document.addEventListener('mousemove', (e) => {
-  const on = !!e.target.closest('.hit');
-  if (on !== hovering) { hovering = on; window.toastHost.send('hover', on); }
-});
-window.addEventListener('mouseout', (e) => { if (!e.relatedTarget && hovering) { hovering = false; window.toastHost.send('hover', false); } });
+// clicks pass through to the game except over the close button: toast-ui.js switches that from
+// the cursor position, against where the close buttons are (hitrects.js)
+window.watchHitRects('.hit', (list) => window.toastHost.send('hits', list));
 
 window.toastHost.onFeed((d) => {
   if (d.type === 'toast') add(d);
   else if (d.type === 'toast-pos') document.body.classList.toggle('bottom', d.pos === 'bottom');
   else if (d.type === 'toast-clear') { for (const t of shown.slice()) remove(t); waiting.length = 0; drawMore(); }
-  else if (d.type === 'hover-reset') hovering = false;
 });
 new ResizeObserver(report).observe(stack);

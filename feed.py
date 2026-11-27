@@ -52,7 +52,7 @@ import paths  # noqa: E402
 import weekly_scrolls as ws  # noqa: E402
 from game import MMError, GameError, call, rows, ingredients, WING, PAID_COMMANDS  # noqa: E402
 
-VERSION = "1.4.2"
+VERSION = "1.4.3"
 PRIVATE = paths.data("weekly_scrolls_widget.json")   # this widget's own bookkeeping (EXP per skill)
 NOTIFY = paths.data("widget_notify.jsonl")           # widget.py notify (appended queue)
 RUNS = paths.data_dir()

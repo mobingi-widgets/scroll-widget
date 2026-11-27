@@ -19,6 +19,8 @@ const ctxLib = require('./ctxmenu');
 const updater = require('./updater');
 const consent = require('./consent');
 const toastLib = require('./toast-ui');
+const hitpoll = require('./hitpoll');
+const trayState = require('./tray-state');
 
 // The notice (이용 안내, notice.html - its <meta name="notice-version"> is the version): nothing
 // starts - no game reads, no window tracking, no update check - until it is agreed to.
@@ -60,7 +62,8 @@ let quitting = false;
 let lastErr = '';
 let game = { found: false };     // latest gamewin report from feed.py
 let height = 300;
-let interactive = false;         // the window is taking clicks right now (pointer over a button/badge)
+let interactive = false;         // the window is taking clicks right now (hitpoll.js decides)
+let hits = null;                 // hitpoll.js
 let typing = false;              // a name is being typed: keep focus and clicks
 let charSwitched = false;        // a character switch was seen; toast it with the next snapshot
 // Window-app mode (user, 2026-11-27): with no game window there is nothing to lay the
@@ -149,12 +152,19 @@ function problems() {
 
 let lastProblems = '';
 let knownProblems = new Set();
+// The tray icon says the state (tray-state.js): grey = hidden by the user, a red dot = a problem
+let trayUi = null;
+function updateTray() {
+  if (trayUi) trayUi.update({ hidden: cfg.show === 'hidden', problem: (problems()[0] || '').split(' — ')[0] });
+}
+
 function pushProblems() {
   const list = problems();
   const key = JSON.stringify(list);
   if (key !== lastProblems) {
     lastProblems = key;
     toPage({ type: 'problems', list });
+    updateTray();
     // a problem that just appeared also gets a toast (the ⚠ on the ☰ stays until it is gone)
     for (const p of list) {
       const head = p.split(' — ')[0];
@@ -392,6 +402,23 @@ function updateVisibility() {
 let dock = null;
 const isDragging = () => !!(dock && dock.active());
 
+// The size bars show only while the pointer is near what is drawn (user 2026-11-27): at once when
+// it comes, 0.4 s after it leaves (no flicker on the way to a bar), and all through a drag.
+let barsOn = false;
+let barsT = null;
+function showBars(near) {
+  clearTimeout(barsT);
+  if (near || sizing || isDragging()) {
+    if (!barsOn) { barsOn = true; toPage({ type: 'bars', on: true }); }
+    return;
+  }
+  barsT = setTimeout(() => {
+    if (sizing || isDragging() || (hits && hits.isNear()) || !barsOn) return;
+    barsOn = false;
+    toPage({ type: 'bars', on: false });
+  }, 400);
+}
+
 function onDrop(r) {
   if (r.appPos) saveCfg({ appPos: r.appPos });
   else saveCfg({ align: r.align, dx: r.dx, fy: r.fy });
@@ -401,6 +428,7 @@ function onDrop(r) {
     interactive = false;
   }
   place();
+  showBars(hits ? hits.isNear() : false);
 }
 
 // --------------------------------------------------------------------- feed
@@ -663,8 +691,10 @@ function setAlign(a) {
 }
 
 function setShow(v) {
+  if (v === 'hidden' && cfg.show !== 'hidden') saveCfg({ showBefore: cfg.show });   // the tray click goes back to it
   saveCfg({ show: v });
   updateVisibility();
+  updateTray();
 }
 
 function setOpacity(o) {
@@ -708,6 +738,7 @@ function createWindow() {
     win.webContents.setZoomFactor(zoom);
     toPage(windowState());
     toPage({ type: 'mode', app: appMode });
+    barsOn = false;                    // a (re)loaded page starts with the size bars hidden
     room = undefined;                  // a reloaded page has to hear the room again
     lastProblems = '';
     pushProblems();
@@ -720,10 +751,10 @@ function createWindow() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromPath(path.join(__dirname, 'tray.png'));
-  tray = new Tray(icon);
-  tray.setToolTip('주간 납품 오버레이 — 클릭: 보이기/숨기기 · 우클릭: 메뉴');
-  tray.on('click', () => setShow(cfg.show === 'hidden' ? 'always' : 'hidden'));
+  tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'tray.png')));
+  trayUi = trayState.create({ tray, dir: __dirname, name: '주간 납품 위젯' });
+  updateTray();
+  tray.on('click', () => setShow(cfg.show === 'hidden' ? (cfg.showBefore || 'always') : 'hidden'));
   tray.on('right-click', () => tray.popUpContextMenu(buildMenu()));
 }
 
@@ -731,13 +762,13 @@ ipcMain.on('cmd', (_e, obj) => toFeed(obj));
 
 ipcMain.on('ui', (_e, action, arg) => {
   if (!win || win.isDestroyed()) return;
-  if (action === 'hover') {
-    // Over a button or badge: take clicks. Elsewhere: let them through to the game.
-    // (A plain window in app mode always takes clicks.)
-    if (!isDragging() && !typing && !appMode) {
-      interactive = !!arg;
-      win.setIgnoreMouseEvents(!arg, { forward: true });
-    }
+  if (action === 'hits') {
+    // Over a button, badge or the open panel: take clicks; elsewhere they go to the game
+    // (hitpoll.js, from the cursor). The page's own 'hover' reports are not used any more -
+    // they only came while forwarded mouse moves did. A plain window always takes clicks.
+    if (hits) hits.setRects(arg);
+  } else if (action === 'near') {
+    if (hits) hits.setNear(arg);       // what is drawn + the size bars' strips: the bars show there
   } else if (action === 'tip') {
     // hide, draw the new content off screen, show once it has been measured
     tipAnchor = arg ? arg.rect : null;
@@ -781,10 +812,12 @@ ipcMain.on('ui', (_e, action, arg) => {
     saveCfg({ expanded: !!arg });
   } else if (action === 'sizing') {
     sizing = !!arg;
+    showBars(hits ? hits.isNear() : false);
   } else if (action === 'width-drag') {
     // the side bar: arg = { on, min (CSS px the header needs) }
     sizing = !!(arg && arg.on);
     widthDrag(!!(arg && arg.on), arg && arg.min);
+    showBars(hits ? hits.isNear() : false);
   } else if (action === 'width-reset') {
     saveCfg({ width: DEFAULTS.width });
     place();
@@ -799,7 +832,7 @@ ipcMain.on('ui', (_e, action, arg) => {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => setShow(cfg.show === 'hidden' ? 'always' : cfg.show));
+  app.on('second-instance', () => setShow(cfg.show === 'hidden' ? (cfg.showBefore || 'always') : cfg.show));
   app.whenReady().then(async () => {
     cfg = loadCfg();
     uui = makeUpdateUi();
@@ -825,6 +858,22 @@ if (!app.requestSingleInstanceLock()) {
       gameRect: gameRectDip, gameVisible, zoom: () => zoom, always: !!SHOT,
     });
     createTipWindow();
+    // click-through from the cursor position (hitpoll.js) - not from forwarded mouse moves, which
+    // stop while the game (run as administrator) is in front
+    hits = hitpoll.create({
+      win, zoom: () => zoom,
+      hold: () => isDragging() || sizing || typing || appMode,
+      onNear: showBars,
+      get: () => interactive,
+      set: (on) => {
+        interactive = on;
+        win.setIgnoreMouseEvents(!on, { forward: true });
+        if (!on) {
+          toPage({ type: 'hover-reset' });
+          if (tipAnchor) { tipAnchor = null; placeTip(); }
+        }
+      },
+    });
     dock = dockLib.create({
       win, name: 'scroll-widget', title: '주간 납품 위젯',
       gameRect: gameRectDip, appMode: () => appMode,
@@ -842,19 +891,7 @@ if (!app.requestSingleInstanceLock()) {
     }
     setInterval(raise, 2000);
     setInterval(pushProblems, 5000);   // notices a stalled feed even when nothing arrives
-    // Safety net for click-through: leaving the window fast from a badge sends no
-    // "left" event, which would keep the overlay eating the game's clicks.
     setInterval(checkMode, 1000);      // notices the game window staying gone
-    setInterval(() => {
-      if (!interactive || isDragging() || sizing || typing || appMode || !win || win.isDestroyed()) return;
-      const p = screen.getCursorScreenPoint();
-      const b = win.getBounds();
-      if (p.x < b.x || p.y < b.y || p.x >= b.x + b.width || p.y >= b.y + b.height) {
-        interactive = false;
-        win.setIgnoreMouseEvents(true, { forward: true });
-        toPage({ type: 'hover-reset' });
-      }
-    }, 250);
     setInterval(() => {               // tooltip gone the moment the pointer is off the overlay
       if (!tipAnchor || !win || win.isDestroyed()) return;
       const p = screen.getCursorScreenPoint();

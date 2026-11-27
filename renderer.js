@@ -160,6 +160,11 @@ document.addEventListener('mousemove', (e) => {
   setHover(!!e.target.closest('.hit, .chip, [data-tip], .tipm, #panel'));
   tipFor(e.target.closest('[data-tip], .tipm'));
 });
+// what takes the mouse, for main.js (hitpoll.js decides click-through from the cursor; mouse
+// moves do not reach a click-through window while the game, run as administrator, is in front)
+window.watchHitRects('.hit, .chip, [data-tip], .tipm, #panel', (list) => window.widget.ui('hits', list), '#panel');
+// where the size bars show (what is drawn + their strips; main.js decides from the cursor)
+window.watchHitRects('.head .pill, #updpill, #band, #panel, #sizer, #wsizer', (list) => window.widget.ui('near', list), { inert: true });
 window.addEventListener('mouseout', (e) => { if (!e.relatedTarget) { setHover(false); tipFor(null); } });   // left the window
 
 // ---------------------------------------------------------------- tooltips
@@ -1006,6 +1011,8 @@ window.widget.onFeed((d) => {
     blockUntil = d.open ? Infinity : Date.now() + 300;
     menuOpen = !!d.open;
     drawPill();
+  } else if (d.type === 'bars') {
+    document.body.classList.toggle('bars', !!d.on);     // the size bars: only while the pointer is near
   }
 });
 

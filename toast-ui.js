@@ -14,6 +14,7 @@
 
 const { BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
+const hitpoll = require('./hitpoll');
 
 const LEVEL_RANK = { info: 0, warn: 1, action: 2 };
 const POSITIONS = ['top', 'center', 'bottom'];
@@ -55,23 +56,24 @@ function create(o) {
     send('toast-pos', { pos: settings().pos });
     for (const m of early.splice(0)) show(m);
   });
-  win.on('closed', () => { win = null; clearInterval(net); });
-
-  // The x of an 'action' toast takes the mouse only while hovered; leaving fast sends no "left",
-  // so the pointer outside the window always gives the clicks back to the game.
-  const net = setInterval(() => {
-    if (!alive() || !win.isVisible()) return;
-    const p = screen.getCursorScreenPoint();
-    const b = win.getBounds();
-    if (p.x < b.x || p.y < b.y || p.x >= b.x + b.width || p.y >= b.y + b.height) {
-      win.setIgnoreMouseEvents(true, { forward: true });
-      send('hover-reset');
-    }
-  }, 400);
+  // The x of an 'action' toast takes the mouse only while the pointer is on it - decided from the
+  // cursor (hitpoll.js; the page reports where its x buttons are), so it also works while the
+  // game, run as administrator, is in front.
+  let hot = false;
+  const poll = hitpoll.create({
+    win, zoom: () => o.zoom(), get: () => hot,
+    set: (on) => {
+      hot = on;
+      if (!alive()) return;
+      win.setIgnoreMouseEvents(!on, { forward: true });
+      if (!on) send('hover-reset');
+    },
+  });
+  win.on('closed', () => { win = null; poll.stop(); });
 
   ipcMain.on('toastui', (e, action, arg) => {
     if (!alive() || e.sender !== win.webContents) return;
-    if (action === 'hover') win.setIgnoreMouseEvents(!arg, { forward: true });
+    if (action === 'hits') poll.setRects(arg);
     else if (action === 'height') {
       const h = Math.max(20, Number(arg) || 0);
       if (h !== height) { height = h; place(); }
@@ -113,6 +115,7 @@ function create(o) {
     } else if (win.isVisible()) {
       win.setOpacity(0);
       win.setIgnoreMouseEvents(true, { forward: true });
+      hot = false;
       send('hover-reset');
       win.hide();
     }
