@@ -1,5 +1,6 @@
 // Draws the items ctxmenu.js sends; a click reports the item (and a segment's option).
-// The hovered line's explanation (tip) shows at the bottom; nothing there otherwise. A click that
+// The hovered line's explanation (tip) shows at the bottom; nothing there otherwise (and no strip
+// at all when no line has one). A click that
 // keeps the menu open redraws it - the hint of what is still under the pointer stays.
 const rows = document.getElementById('rows');
 const hint = document.getElementById('hint');
@@ -125,10 +126,13 @@ function draw(items) {
     rows.appendChild(r);
   }
   hint.textContent = (hoverKey != null && tips.get(hoverKey)) || '';
+  // a menu where nothing explains itself (no tip on any line, option or button - a bar button always
+  // has one) has no hint strip at all, not an empty one under its last line (user 2026-11-27)
+  hint.hidden = ![...tips.values()].some(Boolean);
   report();
 }
 
-// the window is sized to the menu (the hint line keeps its height empty, so nothing jumps)
+// the window is sized to the menu (a hint line there keeps its height empty, so nothing jumps)
 function report() {
   hint.style.minHeight = '30px';
   window.ctx.height(document.getElementById('menu').getBoundingClientRect().height + 2);
