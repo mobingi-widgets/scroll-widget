@@ -7,7 +7,8 @@
 <style>
   /* Same look as the game's own toast (user's reference 2026-11-27): a dark slate
      pill, plain white text centred, no icon, no outline. Importance shows only as a
-     small dot in front - none for info, yellow for warn, red (with ×) for action. */
+     small dot in front - none for info, yellow for warn, red for action. A click closes a toast (no ×,
+     user 2026-11-27); the pointer shows it once the toast takes the mouse (toast.js, after its grace). */
   :root { --warn: #f0b13a; --action: #ef5a4a; }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: transparent; overflow: hidden; }
@@ -28,12 +29,7 @@
   .action .dot { display: block; background: var(--action); }
   .text { white-space: normal; word-break: keep-all; text-align: center; }
   .count { font-size: 11.5px; color: #b9bfcc; margin-left: 3px; }
-  .action { padding-right: 10px; }
-  .close {
-    flex: none; width: 20px; height: 20px; border: 0; border-radius: 10px; cursor: pointer; margin-left: 4px;
-    background: rgba(255,255,255,.12); color: #fff; font: inherit; font-size: 12px; line-height: 20px; padding: 0;
-  }
-  .close:hover { background: var(--action); }
+  .toast.hit { cursor: pointer; }
   .more { font-size: 11px; color: #b9bfcc; text-align: center; }
   /* two lines (toast.js m.icon / m.sub - 망호 스캐너 새 망호 알림): three pictures each side of a line that
      never wraps, the second line cut with … at the toast's width; the pictures say it, so no dot */

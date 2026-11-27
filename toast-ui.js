@@ -56,9 +56,9 @@ function create(o) {
     send('toast-pos', { pos: settings().pos });
     for (const m of early.splice(0)) show(m);
   });
-  // The x of an 'action' toast takes the mouse only while the pointer is on it - decided from the
-  // cursor (hitpoll.js; the page reports where its x buttons are), so it also works while the
-  // game, run as administrator, is in front.
+  // A toast takes the mouse (a click closes it) only while the pointer is on it and it is past its 0.2 s
+  // grace (toast.js) - decided from the cursor (hitpoll.js; the page reports where those toasts are), so it
+  // also works while the game, run as administrator, is in front.
   let hot = false;
   const poll = hitpoll.create({
     win, zoom: () => o.zoom(), get: () => hot,
@@ -108,7 +108,7 @@ function create(o) {
     wasOnScreen = on;
     if (ready && !empty && on) {
       // in by opacity after showing at 0 (no Windows open animation; the toasts fade themselves)
-      if (!win.isVisible()) win.showInactive();
+      if (!win.isVisible()) { win.showInactive(); send('toast-shown'); }     // shown again: the page's grace
       win.setOpacity(1);
       win.setAlwaysOnTop(true, 'screen-saver');
       win.moveTop();

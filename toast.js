@@ -1,11 +1,26 @@
 // Toasts over the game window (toast-ui.js places this window and decides when to show
 // it; the same file in both overlays). Up to three at once, the rest wait their turn; the same text arriving again
-// while shown becomes ×n. Durations: info 4 s · warn 6 s · action until closed.
+// while shown becomes ×n. Durations: info 4 s · warn 6 s · action until clicked.
+// A click anywhere on a toast closes it (user 2026-11-27 - no × any more) - except in the grace: for GRACE_MS
+// after the stack changes (a toast shown, one changed in place or counted again, the window shown again) no
+// toast takes the mouse (none is .hit, so toast-ui.js keeps the window click-through) and a click on one does
+// nothing: a click meant for the game, under a toast that just appeared, reaches the game.
 const MAX = 3;
 const DURATION = { info: 4, warn: 6 };
 const stack = document.getElementById('stack');
 const shown = [];    // { text, level, el, count, timer }
 const waiting = [];
+const GRACE_MS = 200;
+let graceUntil = 0;
+let graceTimer = 0;
+
+// (re)start the grace: no toast clickable now, all of them (those not leaving) after GRACE_MS
+function grace() {
+  graceUntil = performance.now() + GRACE_MS;
+  for (const t of shown) t.el.classList.remove('hit');
+  clearTimeout(graceTimer);
+  graceTimer = setTimeout(() => { for (const t of shown) if (!t.leaving) t.el.classList.add('hit'); }, GRACE_MS);
+}
 
 function report() {
   // tell main.js how tall the stack is, and whether anything is left to show
@@ -29,6 +44,7 @@ function remove(t) {
   if (t.leaving) return;
   clearTimeout(t.timer);
   t.leaving = true;
+  t.el.classList.remove('hit');
   t.el.classList.remove('in');
   t.gone = setTimeout(() => {
     t.el.remove();
@@ -120,17 +136,12 @@ function show(m) {
     el.append(dot, lines);
   } else el.append(dot, text);
   el.title = [m.by ? `보낸 이: ${m.by}` : '', m.detail || ''].filter(Boolean).join('\n');
-  if (t.level === 'action') {
-    const x = document.createElement('button');
-    x.className = 'close hit';
-    x.textContent = '×';
-    x.title = '닫기';
-    x.onclick = () => remove(t);
-    el.appendChild(x);
-  }
+  // a left click closes it - not in the grace (see the top)
+  el.addEventListener('click', (e) => { if (e.button === 0 && performance.now() >= graceUntil) remove(t); });
   const more = stack.querySelector('.more');
   stack.insertBefore(el, more);
   shown.push(t);
+  grace();
   requestAnimationFrame(() => el.classList.add('in'));
   arm(t, m.sec);
   report();
@@ -148,6 +159,7 @@ function update(t, m) {
   t.countEl.textContent = '';
   t.el.classList.remove('info', 'warn', 'action');
   t.el.classList.add(t.level);
+  grace();                             // changed under the pointer: the grace again
   arm(t, m.sec);
   report();
 }
@@ -166,6 +178,7 @@ function add(m) {
     revive(same);
     same.count += 1;
     same.countEl.textContent = ` ×${same.count}`;
+    grace();
     arm(same, m.sec);
     return;
   }
@@ -174,12 +187,13 @@ function add(m) {
   else { waiting.push(m); drawMore(); report(); }
 }
 
-// clicks pass through to the game except over the close button: toast-ui.js switches that from
-// the cursor position, against where the close buttons are (hitrects.js)
+// clicks pass through to the game except over a toast past its grace: toast-ui.js switches that from
+// the cursor position, against where those toasts are (hitrects.js)
 window.watchHitRects('.hit', (list) => window.toastHost.send('hits', list));
 
 window.toastHost.onFeed((d) => {
   if (d.type === 'toast') add(d);
+  else if (d.type === 'toast-shown') grace();          // the window shown again: what is under the pointer changed
   else if (d.type === 'toast-pos') document.body.classList.toggle('bottom', d.pos === 'bottom');
   else if (d.type === 'toast-clear') { for (const t of shown.slice()) remove(t); waiting.length = 0; drawMore(); }
 });
