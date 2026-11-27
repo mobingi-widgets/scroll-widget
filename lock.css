@@ -11,9 +11,15 @@ body.locked #root { opacity: var(--lock-dim, .5); transition: opacity .25s; }
   color: #f2eee6; font: 600 13px/1.35 "Malgun Gothic", "Segoe UI", system-ui, sans-serif; white-space: nowrap;
 }
 #lockhint[hidden] { display: none; }
+/* locked, the hints show through like the list, a little less: the list is at half the window's
+   opacity, the card about 1.1 x that and its 🔒 and words 1.4 x - a touch crisper than the card, so
+   they read over the rows under it (user 2026-11-27, 1.9.1 - no solid card over the dimmed list).
+   The 🔓 moment stays solid (the window at full opacity then, the list back to normal). */
+#lockhint.big, #lockhint.small { background: rgba(16,19,25,.56); border-color: rgba(255,255,255,.1); box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+#lockhint.big .lk, #lockhint.big .lt, #lockhint.small .lk { opacity: .72; }
 #lockhint .lk { font-size: 34px; line-height: 1; font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif; }
 #lockhint.unlock .lt { display: none; }
-#lockhint.small { box-sizing: border-box; justify-content: center; padding: 0 4px; gap: 0; border-radius: 6px; background: rgba(16,19,25,.92); }
+#lockhint.small { box-sizing: border-box; justify-content: center; padding: 0 4px; gap: 0; border-radius: 6px; }
 #lockhint.small .lk { font-size: 12px; }
 #lockhint.small .lt { display: none; }
 

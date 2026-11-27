@@ -5,10 +5,10 @@
 // tray (the way out when the game holds the cursor). It is a mode: leave again -> 3 s -> locked.
 //
 // While locked, the pointer resting on the list for 0.3 s shows a big 🔒 with how to unlock;
-// after 2 s without shaking it shrinks to a small 🔒 in a corner, so the list stays readable. The
-// big one is drawn with the window at full opacity (the list itself dimmed in the page) so it
-// reads at any 투명도. The page side is lock-ui.js + lock.css, with the switch: a padlock button at
-// the start of the header (dim and open = off, bright and closed = on).
+// after 2 s without shaking it shrinks to a small 🔒 on the ☰, so the list stays readable. Both
+// show through like the locked list, a little less (1.9.1). The page side is lock-ui.js + lock.css,
+// with the switch: a padlock button at the start of the header (dim and open = off, bright and
+// closed = on).
 //
 // Everything runs off hitpoll.js's 30 ms poll (sample): the same cursor position that decides
 // click-through, so it works while the game (run as administrator) is in front.
@@ -95,13 +95,15 @@ function create(o) {
     return { x: b.x + l * z, y: b.y + t * z, width: (r - l) * z, height: (btm - t) * z };
   }
 
-  // the window's opacity and what the page shows. The big 🔒 (and 🔓) are drawn with the window at
-  // full opacity and the list dimmed in the page to what it would be (half the 투명도); otherwise
-  // the window keeps the 투명도 and the page halves the list. A plain window (no game) is main's.
+  // the window's opacity and what the page shows. Locked, the window keeps the 투명도 and the page
+  // halves the list; the 🔒 hints show through about as much (lock.css: 1.2 x the list's - user
+  // 2026-11-27, 1.9.1: a solid card over the dimmed list defeated the point). Only the 🔓 moment is
+  // drawn with the window at full opacity and the list at its normal look. A plain window (no game)
+  // is main's.
   function look() {
     const plain = o.appMode();
     const op = Number(o.opacity()) || 1;
-    const bright = state === 'unlocking' || (state === 'locked' && hint === 'big');
+    const bright = state === 'unlocking';
     const winOp = plain ? null : bright ? 1 : op;
     const dim = plain ? 1 : state === 'locked' ? (op * DIM) / winOp : state === 'unlocking' ? op / winOp : 1;
     const msg = { type: 'lock', on: !!o.enabled(), state, hint, wiggle, dim: Math.round(dim * 1000) / 1000, side: o.side() };
