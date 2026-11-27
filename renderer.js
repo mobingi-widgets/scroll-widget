@@ -165,6 +165,8 @@ document.addEventListener('mousemove', (e) => {
 window.watchHitRects('.hit, .chip, [data-tip], .tipm, #panel', (list) => window.widget.ui('hits', list), '#panel');
 // where the size bars show (what is drawn + their strips; main.js decides from the cursor)
 window.watchHitRects('.head .pill, #updpill, #band, #panel, #sizer, #wsizer', (list) => window.widget.ui('near', list), { inert: true });
+// the whole area (over the game): once near, the bars stay while the pointer is anywhere in it
+window.watchHitRects('#area', (list) => window.widget.ui('keep', list), { inert: true });
 window.addEventListener('mouseout', (e) => { if (!e.relatedTarget) { setHover(false); tipFor(null); } });   // left the window
 
 // ---------------------------------------------------------------- tooltips
@@ -321,7 +323,9 @@ function placeBubble() {
   const w = b.offsetWidth;
   let left = document.body.classList.contains('left') ? m.left - r.left : m.right - r.left - w;
   left = Math.max(2, Math.min(left, r.width - w - 2));
-  b.style.top = `${Math.round(m.bottom - r.top + 4)}px`;
+  // above the ☰ when the content sits at the area's bottom (body.up)
+  const up = document.body.classList.contains('up');
+  b.style.top = `${Math.round(up ? m.top - r.top - 4 - b.offsetHeight : m.bottom - r.top + 4)}px`;
   b.style.left = `${Math.round(left)}px`;
   b.style.setProperty('--caret', `${Math.round(Math.max(4, Math.min(w - 12, left + w - (m.left - r.left + m.width / 2) - 4)))}px`);
 }
@@ -339,22 +343,20 @@ function setProblems(list) {
     '클릭: 메뉴 · 끌기: 위치 옮기기'].join('\n');
 }
 
-// The open list is cut to the height limit and scrolls instead. main.js sends room = { h:
-// the limit in force, game: down to the game window's bottom, max: the user's limit }, all
-// CSS px from the overlay's top. The user sets the limit by dragging the thin line at the
-// bottom (user 2026-11-27); double-click it = no limit (down to the game window's bottom).
-// The rest of the overlay does not depend on the list's height, so this settles in one step.
+// The open tab is cut to the room and scrolls instead. main.js sends room = { h, game, max, area }
+// (CSS px). Over the game (area) h is the area's height: the window is the area the user set and
+// the height bar sits on its free edge, outside the content. As a plain window h is the limit
+// (null = none) and the bar sits under the panel. Double-click the bar = to the game window's
+// edge (no limit as a plain window). The rest does not depend on the tab's height: one step.
 let room = null;
-let sizing = null;                     // the line is being dragged: the live limit
-function limitNow() {
-  if (sizing != null) return room && room.game ? Math.min(sizing, room.game) : sizing;
-  return room ? room.h : null;
-}
+let areaMode = false;
+let sizing = null;                     // the bar is being dragged (main.js follows it)
 function fitTab() {
   const tab = document.querySelector('.tab.on');
   if (!tab) return;
-  const lim = limitNow();
+  let lim = room ? room.h : null;
   if (!lim || !document.body.classList.contains('expanded')) { tab.style.maxHeight = ''; return; }
+  if (areaMode) lim -= $('sizer').offsetHeight;          // the bar's strip on the area's edge
   const other = $('root').getBoundingClientRect().height - tab.getBoundingClientRect().height;
   const mh = Math.max(60, Math.floor(lim - other)) + 'px';
   if (tab.style.maxHeight !== mh) tab.style.maxHeight = mh;
@@ -364,34 +366,21 @@ sizer.addEventListener('pointerdown', (e) => {
   if (e.button !== 0 || blocked()) return;
   e.preventDefault();
   try { e.target.setPointerCapture(e.pointerId); } catch { /* not capturable */ }   // the .grab; events bubble here
-  // from the overlay's height now, by the cursor's way from the press (until 1.6.1 / 1.4.3 the
-  // limit jumped to the cursor itself: a press without moving cut the overlay up to 9 px and
-  // turned "no limit" into a limit). Not moved = a click: nothing changes, nothing is saved.
-  const base = $('root').getBoundingClientRect().height;
-  const y0 = e.clientY;
-  let moved = false;
-  const at = (ev) => Math.max(120, Math.round(base + ev.clientY - y0));
-  sizing = Math.round(base);
+  // main.js follows the cursor from the press (dock.heightStart): with the content at the area's
+  // bottom the bar is on top and the window's top moves with the cursor, so the page cannot
+  // measure it. The height changes by the cursor's way only; a click changes and saves nothing.
+  const base = Math.round(areaMode && room && room.h ? room.h : $('root').getBoundingClientRect().height);
+  sizing = base;
   tipFor(null);
   document.body.classList.add('sizing');
-  window.widget.ui('sizing', true);
-  fitTab();
-  const move = (ev) => { if (Math.abs(ev.clientY - y0) >= 2) moved = true; if (moved) { sizing = at(ev); fitTab(); } };
+  window.widget.ui('height-drag', { on: true, base, min: 120 });
   const done = () => {
-    sizer.removeEventListener('pointermove', move);
     sizer.removeEventListener('pointerup', done);
     sizer.removeEventListener('pointercancel', done);
-    const v = sizing;
     sizing = null;
     document.body.classList.remove('sizing');
-    window.widget.ui('sizing', false);
-    if (moved) {
-      room = room ? { ...room, max: v, h: room.game ? Math.min(v, room.game) : v } : { h: v, game: null, max: v };
-      window.widget.ui('maxh', v);
-    }
-    fitTab();
+    window.widget.ui('height-drag', { on: false });
   };
-  sizer.addEventListener('pointermove', move);
   sizer.addEventListener('pointerup', done);
   sizer.addEventListener('pointercancel', done);
 });
@@ -1000,6 +989,7 @@ window.widget.onFeed((d) => {
     document.body.classList.toggle('left', d.align !== 'right');
     document.body.classList.toggle('wbar-left', d.wside === 'left');
     document.body.classList.toggle('wbar-right', d.wside !== 'left');
+    document.body.classList.toggle('up', d.valign === 'bottom');      // content at the area's bottom
     placeBubble();                       // the ☰ may have moved to the other end
     if (d.width) setWidthTip(d.width, d.defWidth);
   } else if (d.type === 'width') {
@@ -1015,7 +1005,11 @@ window.widget.onFeed((d) => {
     $('modepill').title = '게임 창이 없어 일반 창으로 표시합니다\n게임이 켜지면 오버레이로 돌아갑니다';
   } else if (d.type === 'room') {
     room = { h: d.h, game: d.game, max: d.max };
+    areaMode = !!d.area;
+    document.body.classList.toggle('area', areaMode);
+    sizer.title = areaMode ? '끌기: 높이 · 두 번 클릭: 게임 창 끝까지' : '끌기: 최대 높이 · 두 번 클릭: 제한 없음';
     fitTab();
+    placeBubble();
   } else if (d.type === 'hover-reset') {
     hovering = false;      // main.js saw the pointer outside and made the window click-through again
   } else if (d.type === 'problems') {

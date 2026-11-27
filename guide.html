@@ -22,6 +22,10 @@
   .zone.other span { color: #b9ddff; }
   #box { position: absolute; border: 2px dashed #ffd34a; border-radius: 6px; }
   #box.bad { border-color: #ff6b5e; }
+  /* the edge the content sticks to (dock.js anchor): solid and thicker */
+  #box.top { border-top: 4px solid #ffd34a; }
+  #box.bottom { border-bottom: 4px solid #ffd34a; }
+  #box.bad.top, #box.bad.bottom { border-color: #ff6b5e; }
   #label {
     position: absolute; padding: 2px 8px; border-radius: 8px; white-space: nowrap; font-size: 11.5px;
     background: rgba(14,17,22,.92); border: 1px solid rgba(255,255,255,.2); text-shadow: none;

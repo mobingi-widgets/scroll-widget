@@ -88,7 +88,10 @@ const POS = { left: { dx: 8, fy: 0.24 }, right: { dx: 6, fy: 0.29 } };
 // width = the whole window: since 1.4.1 that includes the width bar's own 8px strip beside the
 // content (style.css), so the default and every saved width got 8 more - the content keeps its width
 const WIDTH_STRIP = 8;
-const DEFAULTS = { width: 270 + WIDTH_STRIP, align: 'left', ...POS.left, show: 'always', opacity: 1, expanded: false, v: 4, font: 'mid',
+// v5 (1.5.0): the window is the area the user set (dock.areaRect) - align + dx + width + fy +
+// maxH as before describe it with the content at its top (valign 'top'), the same picture as
+// the content-sized window had; fyb = its bottom edge once the content sits at the bottom
+const DEFAULTS = { width: 270 + WIDTH_STRIP, align: 'left', ...POS.left, valign: 'top', fyb: 0.9, show: 'always', opacity: 1, expanded: false, v: 5, font: 'mid',
   toast: { on: true, pos: 'top', min: 'info' } };
 // 글자 작게/중간/크게 (user 2026-11-27): times the zoom that follows the game window's size;
 // everything of this program takes it (overlay, tooltip, menu, toast, update window, notice)
@@ -99,6 +102,7 @@ const STALE_SEC = 90;            // no snapshot for this long = syncing has stal
 let zoom = 1;
 const CFG_PATH = () => path.join(app.getPath('userData'), 'overlay.json');
 
+let cfgOlder = false;              // the settings file is from an older version (loadCfg)
 function loadCfg() {
   let saved = {};
   try { saved = JSON.parse(fs.readFileSync(CFG_PATH(), 'utf8')); } catch { /* first run */ }
@@ -108,6 +112,10 @@ function loadCfg() {
   if (!FONT_SCALE[c.font]) c.font = 'mid';
   // 1.4.0 and before (v3): no strip for the width bar yet
   if ((saved.v || 0) < 4 && typeof saved.width === 'number') c.width = saved.width + WIDTH_STRIP;
+  // 1.4.x and before (v4): no area yet - the same fields are the area, content at its top
+  if ((saved.v || 0) < 5) c.valign = 'top';
+  cfgOlder = Object.keys(saved).length > 0 && (saved.v || 0) < DEFAULTS.v;     // written once in the new form
+  if (c.valign !== 'bottom') c.valign = 'top';
   return c;
 }
 let cfg = DEFAULTS;
@@ -122,6 +130,9 @@ const SHOT = process.env.MOBINGI_WIDGET_SHOT;
 let shotDone = false;
 // MOBINGI_WIDGET_USER_DATA=<dir>: run with a settings folder of its own (tests next to an installed copy)
 if (process.env.MOBINGI_WIDGET_USER_DATA) app.setPath('userData', process.env.MOBINGI_WIDGET_USER_DATA);
+// MOBINGI_WIDGET_GAME_RECT=x,y,w,h (screen px), only with MOBINGI_WIDGET_USER_DATA: a stand-in game
+// window for tests (the area's placement) - no feed (no game reads), no update checks
+const FAKE_GAME = process.env.MOBINGI_WIDGET_USER_DATA ? process.env.MOBINGI_WIDGET_GAME_RECT || '' : '';
 // MOBINGI_WIDGET_DUMP=<file>: write the first snapshot there and quit (the source of a demo fixture)
 const DUMP = process.env.MOBINGI_WIDGET_DUMP;
 // MOBINGI_WIDGET_DEMO=<dir> (+ MOBINGI_WIDGET_FIXTURE=<snapshot.json>): the README screenshots from the
@@ -305,6 +316,7 @@ function setMode(app) {
     interactive = false;
   }
   toPage({ type: 'mode', app: appMode });
+  toPage(windowState());                 // a plain window keeps its content at the top
   place();
 }
 
@@ -325,10 +337,10 @@ function raise() {
   win.moveTop();
 }
 
-// How tall the overlay may grow (CSS px from its top): the limit the user drags at its
-// bottom line (cfg.maxH; null = none) and the game window's own bottom. The page cuts its
-// list to that and scrolls. (User 2026-11-27: no fixed game-UI margin - it would need
-// updating with game patches; the user sets the limit.)
+// How tall the content may be (CSS px): over the game, the area's height (area: true - the
+// window is the area, dock.areaRect); as a plain window, the limit (cfg.maxH; null = none). The
+// page cuts its list to that and scrolls. (User 2026-11-27: no fixed game-UI margin - it would
+// need updating with game patches; the user sets the area.)
 let room = undefined;             // the last room sent (JSON), so a reloaded page hears it again
 let sizing = false;               // the height line is being dragged: keep taking the mouse
 
@@ -344,7 +356,8 @@ function setRoom(r) {
 // docked right -> the left edge; a plain window grows to the right.
 const widthSide = () => (appMode || cfg.align !== 'right' ? 'right' : 'left');
 function windowState() {
-  return { type: 'window', expanded: !!cfg.expanded, align: cfg.align, wside: widthSide(), width: cfg.width, defWidth: DEFAULTS.width };
+  return { type: 'window', expanded: !!cfg.expanded, align: cfg.align, wside: widthSide(), width: cfg.width, defWidth: DEFAULTS.width,
+    valign: appMode ? 'top' : cfg.valign };
 }
 function widthDrag(on, min) {
   if (!dock) return;
@@ -374,11 +387,11 @@ function place() {
     win.webContents.setZoomFactor(zoom);
   }
   const w = Math.round(cfg.width * zoom);
-  const h = Math.max(40, Math.round(height * zoom));
+  let h = Math.max(40, Math.round(height * zoom));    // a plain window: as tall as its content
   let x;
   let y;
   if (appMode) {                       // a plain window: keep wherever the user put it
-    setRoom({ h: cfg.maxH || null, game: null, max: cfg.maxH || null });
+    setRoom({ h: cfg.maxH || null, game: null, max: cfg.maxH || null, area: false });
     const b = win.getBounds();
     const a = screen.getDisplayMatching(b).workArea;
     x = Math.max(a.x, Math.min(b.x, a.x + a.width - w));
@@ -389,14 +402,14 @@ function place() {
     return;
   }
   if (g) {
-    x = cfg.align === 'left' ? Math.round(g.x + cfg.dx) : Math.round(g.x + g.width - w - cfg.dx);
-    y = Math.round(g.y + cfg.fy * g.height);
-    const gameRoom = Math.floor((g.y + g.height - y) / zoom) - 4;
     // never set: start from what the old fixed bottom margin (9%) gave, so nothing jumps
-    if (cfg.maxH === undefined) saveCfg({ maxH: Math.max(80, Math.floor((g.y + g.height * 0.91 - y) / zoom)) });
-    setRoom({ h: cfg.maxH ? Math.min(cfg.maxH, gameRoom) : gameRoom, game: gameRoom, max: cfg.maxH || null });
-    y = Math.max(g.y, Math.min(y, g.y + g.height - Math.min(h, g.height) - 4));
+    if (cfg.maxH === undefined) saveCfg({ maxH: Math.max(80, Math.floor((g.height * (0.91 - cfg.fy)) / zoom)) });
+    // the area the user set (user 2026-11-27): the window, whatever the content does
+    const a = dockLib.areaRect(g, cfg, zoom);
+    setRoom({ h: a.css, game: a.room, max: cfg.maxH || null, area: true });
+    ({ x, y, h } = a);
   } else {
+    setRoom({ h: cfg.maxH || null, game: null, max: cfg.maxH || null, area: false });
     const a = screen.getPrimaryDisplay().workArea;
     x = a.x + a.width - w - 16;
     y = a.y + 80;
@@ -446,7 +459,12 @@ function showBars(near) {
 
 function onDrop(r) {
   if (r.appPos) saveCfg({ appPos: r.appPos });
-  else saveCfg({ align: r.align, dx: r.dx, fy: r.fy });
+  else {
+    const p = { align: r.align, dx: r.dx, fy: r.fy, valign: r.valign, fyb: r.fyb };
+    // "to the game window's edge" stays the height it had: a moved area keeps its size
+    if (cfg.maxH === null && r.dropped) p.maxH = Math.max(80, Math.round(r.dropped.h / zoom));
+    saveCfg(p);
+  }
   toPage(windowState());
   if (!appMode && win && !win.isDestroyed()) {
     win.setIgnoreMouseEvents(true, { forward: true });
@@ -688,7 +706,7 @@ function menuAct(id, opt) {
     case 'refresh': refreshNow(); return false;
     case 'recipes': toFeed({ cmd: 'recipes' }); return false;
     case 'minimize': if (win) win.minimize(); return false;
-    case 'reset-pos': saveCfg({ ...POS[cfg.align] }); place(); return false;
+    case 'reset-pos': saveCfg({ ...POS[cfg.align], valign: 'top' }); toPage(windowState()); place(); return false;
     case 'show': setShow(opt); return opt !== 'hidden';
     case 'wings':
       sync.wingsReset = opt || null;
@@ -718,7 +736,7 @@ function popupMenu() {
   const p = screen.getCursorScreenPoint();
   toPage({ type: 'menu', open: true });
   ctx.open({
-    anchor: { x: p.x, y: p.y + 6, right: cfg.align === 'right', top: p.y - 6 }, zoom, build: menuItems, act: menuAct,
+    anchor: { x: p.x, y: p.y + 6, right: cfg.align === 'right', top: p.y - 6, up: !appMode && cfg.valign === 'bottom' }, zoom, build: menuItems, act: menuAct,
     onClose: () => toPage({ type: 'menu', open: false }),
   });
 }
@@ -802,6 +820,8 @@ ipcMain.on('ui', (_e, action, arg) => {
     if (hits) hits.setRects(arg);
   } else if (action === 'near') {
     if (hits) hits.setNear(arg);       // what is drawn + the size bars' strips: the bars show there
+  } else if (action === 'keep') {
+    if (hits) hits.setKeep(arg);       // the whole area: once shown, the bars stay while the pointer is in it
   } else if (action === 'tip') {
     // hide, draw the new content off screen, show once it has been measured
     tipAnchor = arg ? arg.rect : null;
@@ -843,8 +863,25 @@ ipcMain.on('ui', (_e, action, arg) => {
     if (uui) uui.show();                // the band's "새로운 업데이트가 있습니다!" pill
   } else if (action === 'expanded') {
     saveCfg({ expanded: !!arg });
-  } else if (action === 'sizing') {
-    sizing = !!arg;
+  } else if (action === 'height-drag') {
+    // the height bar, arg = { on, base, min } (CSS px): followed here (dock.heightStart) - with the
+    // content at the area's bottom the bar is on its top, and the window's top moves with the cursor
+    if (arg && arg.on) {
+      sizing = true;                   // keep taking the mouse meanwhile
+      tipAnchor = null;
+      placeTip();
+      const g = !appMode && gameRectDip();
+      if (dock) {
+        dock.heightStart({
+          up: !!g && cfg.valign === 'bottom', zoom, base: Math.round(Number(arg.base) || 0),
+          min: Math.max(40, Math.round(Number(arg.min) || 120)), max: g ? dockLib.areaRect(g, cfg, zoom).room : 4000,
+          onHeight: (h, done, moved) => {
+            if (moved) { cfg.maxH = h; place(); }         // live; kept when let go
+            if (done) { sizing = false; if (moved) saveCfg({ maxH: h }); showBars(hits ? hits.isNear() : false); }
+          },
+        });
+      }
+    } else if (dock) dock.heightEnd();
     showBars(hits ? hits.isNear() : false);
   } else if (action === 'width-drag') {
     // the side bar: arg = { on, min (CSS px the header needs) }
@@ -856,7 +893,7 @@ ipcMain.on('ui', (_e, action, arg) => {
     place();
     toPage({ type: 'width', width: cfg.width, live: false });
   } else if (action === 'maxh') {
-    // the bottom line was let go: the overlay's height limit (CSS px); null = none
+    // double-click on the height bar: null = to the game window's edge (no limit as a plain window)
     saveCfg({ maxH: arg == null ? null : Math.max(80, Math.round(Number(arg) || 0)) });
     place();
   }
@@ -868,6 +905,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', () => setShow(cfg.show === 'hidden' ? (cfg.showBefore || 'always') : cfg.show));
   app.whenReady().then(async () => {
     cfg = loadCfg();
+    if (cfgOlder) saveCfg({});
     uui = makeUpdateUi();
     if (process.env.MOBINGI_UPDATE_SELFTEST) { await uui.selfTest(process.env.MOBINGI_UPDATE_SELFTEST); return; }
     const noticeV = consent.noticeVersion(__dirname);
@@ -908,14 +946,26 @@ if (!app.requestSingleInstanceLock()) {
       },
     });
     dock = dockLib.create({
-      win, name: 'scroll-widget', title: '주간 납품 위젯',
-      gameRect: gameRectDip, appMode: () => appMode,
+      win, name: DEMO ? 'scroll-widget-demo' : FAKE_GAME ? 'scroll-widget-test' : 'scroll-widget', title: '주간 납품 위젯',
+      gameRect: gameRectDip, appMode: () => appMode, valign: () => cfg.valign,
       cursor: () => screen.getCursorScreenPoint(),
       onState: (s) => toPage({ type: 'movemode', ...s }),
       onDrop,
     });
     setInterval(() => { if (win && !win.isDestroyed() && !appMode && win.isVisible()) dock.publish(win.getBounds()); }, 5000);
     if (DEMO) { setTimeout(demoShots, 1500); return; }
+    if (FAKE_GAME) {
+      game = { found: true, rect: FAKE_GAME.split(',').map(Number), minimized: false, front: 'game' };
+      checkMode();
+      place();
+      // what the test reads back: the window, the game window (DIP), the zoom, the page
+      setTimeout(async () => {
+        const page = await win.webContents.executeJavaScript(
+          "({ body: document.body.className, vh: innerHeight, dpr: devicePixelRatio, root: document.getElementById('root').getBoundingClientRect().toJSON() })").catch(() => null);
+        fs.writeFileSync(path.join(app.getPath('userData'), 'area-test.json'), JSON.stringify({ bounds: win.getBounds(), game: gameRectDip(), zoom, pageZoom: win.webContents.getZoomFactor(), cfg, page }));
+      }, 2500);
+      return;
+    }
     startFeed();
     if (!SHOT) {
       uui.start();

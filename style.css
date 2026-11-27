@@ -268,6 +268,34 @@ body.expanded #sizer { display: block; }
 body.sizing, body.sizing * { cursor: ns-resize !important; }
 body.moving #root { outline: 2px dashed var(--yellow); outline-offset: -2px; cursor: grabbing; }
 body.moving.blocked #root { outline-color: var(--red); }
+
+/* The area (user 2026-11-27; main.js room.area): over the game the window is the area the user
+   set. The content sticks to its top - or its bottom (body.up: the pills at the bottom, the band
+   and the panel above) - and the size bars sit on its free edges. A faint frame shows it while
+   the pointer is near (it stays while the pointer is in the area), yellow while it is moved. */
+#area {
+  display: none; position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity .15s;
+  border: 1px dashed rgba(255,255,255,.32); border-radius: 6px;
+}
+body.area #area { display: block; }
+body.area.bars #area, body.area.moving #area { opacity: 1; }
+body.area.moving #area { border: 2px dashed var(--yellow); }
+body.area.moving.blocked #area { border-color: var(--red); }
+body.area.moving #root { outline: none; }
+body.area #sizer { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; }
+body.area #wsizer { display: block; position: fixed; top: 0; bottom: 0; }
+body.up #root { flex-direction: column-reverse; }
+body.area.up #root { position: fixed; left: 0; right: 0; bottom: 0; padding: 6px 0 2px; }
+body.area.up.wbar-left #root { padding-left: 8px; }
+body.area.up.wbar-right #root { padding-right: 8px; }
+body.area.up #sizer { top: 0; bottom: auto; }
+body.up #sizer .grab::after { top: auto; bottom: 3px; }
+body.up .pill { border-radius: 0 0 8px 8px; }
+body.up .band { border-top: 0; border-bottom: 2px solid var(--teal); }
+body.up .panel { margin-top: 0; margin-bottom: 4px; }
+body.up .updpill::before { top: auto; bottom: -4px; border-bottom: 0; border-top: 4px solid #10b981; }
+body.up .updpill:hover::before { border-top-color: #34d399; }
+body.up .updpill.toast::before { border-top-color: rgba(30, 34, 40, .95); }
 .sdot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); flex: none; }
 .sdot.ok { background: var(--green); } .sdot.retry, .sdot.loading { background: var(--yellow); }
 .sdot.offline, .sdot.dead { background: var(--red); }

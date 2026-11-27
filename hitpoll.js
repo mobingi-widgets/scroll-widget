@@ -15,6 +15,8 @@
 //
 // "near" is a second set of rectangles (what is drawn, plus the size bars' strips): the size bars
 // show only while the pointer is near (user 2026-11-27) - from the same poll, for the same reason.
+// "keep" (the whole area, 1.6.2 / 1.4.5) holds near once it is on: the pointer can go from the
+// content across the empty area to a bar on its edge, while just passing over the area shows nothing.
 'use strict';
 
 const { screen } = require('electron');
@@ -26,6 +28,7 @@ const { screen } = require('electron');
 function create(o) {
   let rects = [];
   let near = [];
+  let keep = [];
   let nearOn = false;
   const cursor = o.cursor || (() => screen.getCursorScreenPoint());
   // is the cursor in one of these rectangles (CSS px of the page)?
@@ -43,7 +46,7 @@ function create(o) {
   function tick() {
     if (!o.win || o.win.isDestroyed()) return;
     if (o.onNear) {
-      const n = inside(near);
+      const n = inside(near) || (nearOn && inside(keep));
       if (n !== nearOn) { nearOn = n; o.onNear(n); }
     }
     if (o.hold && o.hold()) return;
@@ -56,6 +59,7 @@ function create(o) {
     // [[left, top, width, height], ...] in CSS px of the page, from hitrects.js
     setRects(list) { rects = clean(list); tick(); },
     setNear(list) { near = clean(list); tick(); },
+    setKeep(list) { keep = clean(list); tick(); },
     isNear: () => nearOn,
     tick,
     stop() { clearInterval(timer); },
