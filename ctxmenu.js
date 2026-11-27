@@ -16,8 +16,9 @@
 //         shown instead of the label, glyph = 'top' | 'center' | 'bottom' - a small screen picture) }
 // A 'line' has its own buttons: actions?: [{ id, text, label, tip?, disabled? }] and toggle?: { id,
 // label, long?, on, tip? }; the line itself is clickable when it has an id.
-// A 'stepper' is label · [−] value [+]: { id, label, value, min, max, step, unit?, tip? } - a click picks
-// (id, the new value as text); the tray gets the values as a submenu.
+// A 'stepper' is label · [−] value [+]: { id, label, value, min, max, step, unit?, names?, tip? } - a click
+// picks (id, the new value as text); the tray gets the values as a submenu. names: { value: words } shown
+// instead of a value's number (새 망호 소리 { 0: '음소거' }).
 // A 'bar' is a row of icon buttons (the rarely used ones) and one at the far end: buttons: [{ id,
 // icon, label, tip?, disabled?, options? (a click steps to the next) }], end: { id, icon, text, label }.
 'use strict';
@@ -196,8 +197,9 @@ function toNative(items, act) {
     } else if (it.type === 'stepper') {
       const values = [];
       for (let v = it.min; v <= it.max; v += it.step) values.push(v);
-      out.push({ label: `${it.label} · ${it.value}${it.unit || ''}`,
-        submenu: values.map((v) => ({ label: `${v}${it.unit || ''}`, type: 'radio', checked: v === Number(it.value), click: () => act(it.id, String(v)) })) });
+      const shown = (v) => (it.names && it.names[v] != null ? String(it.names[v]) : `${v}${it.unit || ''}`);
+      out.push({ label: `${it.label} · ${shown(Number(it.value))}`,
+        submenu: values.map((v) => ({ label: shown(v), type: 'radio', checked: v === Number(it.value), click: () => act(it.id, String(v)) })) });
     } else if (it.type === 'bar') {
       for (const b of [...(it.buttons || []), ...(it.end ? [it.end] : [])]) {
         if (b.options) out.push({ label: b.label, submenu: b.options.map((o) => ({ label: o.label, type: 'radio', checked: !!o.on, click: () => act(b.id, o.id) })) });

@@ -114,7 +114,9 @@ function draw(items) {
         b.addEventListener('click', (e) => { e.stopPropagation(); if (!off) window.ctx.pick(it.id, String(to)); });
         return b;
       };
-      s.append(step('−', v - it.step, v - it.step < it.min), el('span', 'step-v', `${v}${it.unit || ''}`),
+      // names: a value shown as words instead of the number (새 망호 소리 0 = 음소거, 1.11.1)
+      const shown = it.names && it.names[v] != null ? String(it.names[v]) : `${v}${it.unit || ''}`;
+      s.append(step('−', v - it.step, v - it.step < it.min), el('span', 'step-v', shown),
         step('+', v + it.step, v + it.step > it.max));
       r.appendChild(s);
     }
