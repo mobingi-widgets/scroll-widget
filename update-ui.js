@@ -9,7 +9,7 @@
 // Shared by both overlays (same copy in each program), with updater.js and consent.js.
 'use strict';
 
-const { BrowserWindow, ipcMain, screen, shell } = require('electron');
+const { BrowserWindow, ipcMain, screen, shell, dialog } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const updater = require('./updater');
@@ -181,17 +181,24 @@ function create(o) {
       });
       // asked again right before installing: the notice of this version is agreed
       if (i.notice && (cfg().notice || 0) < i.notice.version) throw new Error('이용 안내에 동의하지 않아 설치하지 않음');
-      st.phase = 'installing';
-      send();
-      o.saveCfg({ updatedTo: i.version, updatedFrom: o.version, updatedNote: firstLine(i.notes) });
-      updater.handOver(staged, i, { ...o.installOpts(), okFile, logFile });
-      setTimeout(() => o.quit(), 900);     // the window shows "다시 시작합니다" a moment
+      await installStaged(staged, i);
     } catch (e) {
       st.phase = 'error';
       st.error = String((e && e.message) || e);
       st.tampered = !!(e && e.tampered);
       send();
     }
+  }
+
+  // Hand over to the swap script and quit - only once it is running (updater.handOver waits for
+  // its "started" file). If it does not start, this throws and the app stays on this version,
+  // showing the error: the user never has to start a quit app again by hand (1.6.0 / 1.4.2).
+  async function installStaged(staged, i) {
+    st.phase = 'installing';
+    send();
+    await updater.handOver(staged, i, { ...o.installOpts(), okFile, logFile });
+    o.saveCfg({ updatedTo: i.version, updatedFrom: o.version, updatedNote: firstLine(i.notes) });
+    setTimeout(() => o.quit(), 400);     // the window shows "다시 시작합니다" a moment
   }
 
   // ------------------------------------------------------------- after a restart
@@ -209,14 +216,21 @@ function create(o) {
   }
 
   // Back to the version kept aside (start guard: the notice of this version was not agreed).
-  function rollback() {
-    const prev = o.previousDir();
-    const pkg = JSON.parse(fs.readFileSync(path.join(prev, 'package.json'), 'utf8'));
-    const dir = path.join(o.stageRoot(), 'rollback');
-    fs.mkdirSync(dir, { recursive: true });
-    o.saveCfg({ updatedTo: null });
-    updater.handOver({ dir, files: prev }, { version: pkg.version },
-      { ...o.installOpts(), okFile, logFile, backupDir: path.join(o.stageRoot(), `declined-${o.version}`) });
+  // This version may not run without that agreement, so it quits either way; if the swap script
+  // does not start, it says so first.
+  async function rollback() {
+    try {
+      const prev = o.previousDir();
+      const pkg = JSON.parse(fs.readFileSync(path.join(prev, 'package.json'), 'utf8'));
+      const dir = path.join(o.stageRoot(), 'rollback');
+      fs.mkdirSync(dir, { recursive: true });
+      o.saveCfg({ updatedTo: null });
+      await updater.handOver({ dir, files: prev }, { version: pkg.version },
+        { ...o.installOpts(), okFile, logFile, backupDir: path.join(o.stageRoot(), `declined-${o.version}`) });
+    } catch (e) {
+      dialog.showErrorBox(`${o.title} — 되돌리기 실패`,
+        `이전 버전으로 되돌리지 못했습니다: ${(e && e.message) || e}\n이용 안내에 동의하지 않았으므로 이 버전은 켜지 않고 끝냅니다.`);
+    }
     setTimeout(() => o.quit(), 300);
   }
   const hasPrevious = () => { try { return fs.existsSync(path.join(o.previousDir(), 'package.json')); } catch { return false; } };
@@ -310,7 +324,23 @@ function create(o) {
     }
   }
 
-  return { start, check, show, afterStart, rollback, hasPrevious, menuLines, menuItems, menuAct, pageState, demo, state: () => st };
+  // MOBINGI_UPDATE_SELFTEST=<dir with files/> (the developer's end-to-end test of a built copy):
+  // install those files the way 업데이트 does - hand over, quit, swap, restart, healthy start. The
+  // variable is dropped first, so the restarted version does not do it again. No download and no
+  // signature check here: whoever can set this variable can run anything as the user already.
+  async function selfTest(dir) {
+    delete process.env.MOBINGI_UPDATE_SELFTEST;
+    try {
+      const files = path.join(dir, 'files');
+      const pkg = JSON.parse(fs.readFileSync(path.join(files, 'package.json'), 'utf8'));
+      await installStaged({ dir, files }, { version: pkg.version, notes: 'self-test' });
+    } catch (e) {
+      try { fs.appendFileSync(logFile, `${new Date().toISOString()} selftest failed: ${(e && e.message) || e}\n`); } catch { /* no log */ }
+      o.quit();
+    }
+  }
+
+  return { start, check, show, afterStart, rollback, hasPrevious, menuLines, menuItems, menuAct, pageState, demo, selfTest, state: () => st };
 }
 
 module.exports = { create };

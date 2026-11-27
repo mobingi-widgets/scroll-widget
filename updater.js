@@ -190,21 +190,76 @@ async function stage(info, stageRoot, onProgress) {
   return { dir, files };
 }
 
+// One argument for a Windows command line (CommandLineToArgvW rules: quotes when needed, the
+// backslashes before a quote doubled; "" for an empty value).
+function winQuote(a) {
+  const s = String(a);
+  if (s === '') return '""';
+  if (!/[\s"]/.test(s)) return s;
+  let out = '"';
+  let bs = 0;
+  for (const ch of s) {
+    if (ch === '\\') { bs += 1; continue; }
+    if (ch === '"') { out += '\\'.repeat(bs * 2 + 1) + '"'; bs = 0; continue; }
+    out += '\\'.repeat(bs) + ch;
+    bs = 0;
+  }
+  return out + '\\'.repeat(bs * 2) + '"';
+}
+
 // Hand over to apply-update.ps1 (copied out of the program first: the program's files move).
-// opts: { appDir, keep: [names left in place], launch, launchArgs, launchCwd, okFile, logFile }
-function handOver(staged, info, opts) {
+// opts: { appDir, keep: [names left in place], launch, launchArgs, launchCwd, okFile, logFile, backupDir? }
+// -> resolves once the script is running (it writes a "started" file first thing); rejects if it
+// does not start - then the app must stay (and say so) instead of quitting.
+//
+// How it is started (1.6.0 / 1.4.2 - before, no update was ever installed by the app): a detached
+// PowerShell (DETACHED_PROCESS) has no console, and Windows PowerShell 5.1 then ends without
+// running anything; an attached one sits in libuv's kill-on-close job and dies with the app. So an
+// attached, hidden launcher runs Start-Process for the script: that process is made outside the
+// job (the job allows breakaway) and gets its own hidden console. The launcher ends at once.
+async function handOver(staged, info, opts) {
   const script = path.join(staged.dir, 'apply-update.ps1');
   fs.copyFileSync(path.join(__dirname, 'apply-update.ps1'), script);
   const backup = opts.backupDir || path.join(path.dirname(staged.dir), 'previous');
-  const ps = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  const started = path.join(staged.dir, 'apply-started');
+  const cancel = path.join(staged.dir, 'apply-cancel');
+  for (const f of [started, cancel, opts.okFile]) { try { fs.rmSync(f, { force: true }); } catch { /* none */ } }
+  const sys = process.env.SystemRoot || 'C:\\Windows';
+  let ps = path.join(sys, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  if (!fs.existsSync(ps)) ps = 'powershell.exe';
   const args = ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script,
     '-WaitPid', String(process.pid), '-AppDir', opts.appDir, '-NewDir', staged.files, '-BackupDir', backup,
     '-Keep', (opts.keep || []).join('|'), '-Launch', opts.launch, '-LaunchArgs', opts.launchArgs || '',
     '-LaunchCwd', opts.launchCwd || path.dirname(opts.launch), '-OkFile', opts.okFile, '-Version', info.version,
-    '-Log', opts.logFile];
-  try { fs.rmSync(opts.okFile, { force: true }); } catch { /* none */ }
-  const child = spawn(fs.existsSync(ps) ? ps : 'powershell.exe', args, { detached: true, stdio: 'ignore', windowsHide: true });
-  child.unref();
+    '-Log', opts.logFile, '-Started', started, '-Cancel', cancel];
+  const line = args.map(winQuote).join(' ');
+  const q = (s) => `'${String(s).replace(/'/g, "''")}'`;      // a PowerShell single-quoted string
+  const relay = `Start-Process -FilePath ${q(ps)} -ArgumentList ${q(line)} -WindowStyle Hidden`;
+  const code = await new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn(ps, ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+        '-EncodedCommand', Buffer.from(relay, 'utf16le').toString('base64')], { stdio: 'ignore', windowsHide: true });
+    } catch (e) { resolve(`spawn: ${e.message}`); return; }
+    const t = setTimeout(() => { try { child.kill(); } catch { /* gone */ } resolve('launcher timed out'); }, 20000);
+    child.on('error', (e) => { clearTimeout(t); resolve(`launcher: ${e.message}`); });
+    child.on('exit', (c) => { clearTimeout(t); resolve(c); });
+  });
+  if (code !== 0) throw new Error(`설치 스크립트를 시작하지 못함 (${code})`);
+  // the script says it runs; only then may the app quit
+  const until = Date.now() + 20000;
+  while (Date.now() < until) {
+    if (fs.existsSync(started)) return;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  // give up: a late start must not swap later (the script reads -Cancel after the app has gone)
+  try { fs.writeFileSync(cancel, 'gave up'); } catch { /* then a late script still waits 30 s for us and ends us */ }
+  if (fs.existsSync(started)) {
+    // it came just now: take the cancel back (read only after we quit); if that fails, stay
+    fs.rmSync(cancel, { force: true });
+    return;
+  }
+  throw new Error('설치 스크립트가 20초 안에 시작하지 않음');
 }
 
 // The new version says it started fine (apply-update.ps1 waits for this, else rolls back).
@@ -227,4 +282,4 @@ function cleanup(stageRoot, version) {
   }
 }
 
-module.exports = { check, stage, fetchNotice, handOver, markHealthy, cleanup, verifyMinisig, newer, PUBLIC_KEY };
+module.exports = { check, stage, fetchNotice, handOver, markHealthy, cleanup, verifyMinisig, newer, winQuote, PUBLIC_KEY };
