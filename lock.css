@@ -52,6 +52,15 @@ body.locked #root { opacity: var(--lock-dim, .5); transition: opacity .25s; }
 .head .pill.lockbtn:hover { color: rgba(255,255,255,.75); }
 .head .pill.lockbtn.on:hover { color: #fff; }
 
+/* A compact bound (data-lock-compact - 망호 스캐너 잠금 때 매우 작게, 1.10.0: the tile): it dims like the
+   list; the big hint fills it with the attribute's short words (lock-ui.js), and what is marked
+   data-lock-fade fades to .3 meanwhile so they read cleanly. Nothing else has these marks. */
+body.locked [data-lock-compact] { opacity: var(--lock-dim, .5); transition: opacity .25s; }
+[data-lock-fade] { transition: opacity .2s; }
+body.lock-big [data-lock-fade] { opacity: .3; }
+#lockhint.big.compact { padding: 0; justify-content: center; gap: 4px; font-size: 11.5px; }
+#lockhint.big.compact .lk { font-size: 26px; }
+
 #lockhint .lk.wiggle { animation: lock-wiggle .24s ease-out; }
 @keyframes lock-wiggle {
   0% { transform: rotate(0); }

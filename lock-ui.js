@@ -6,6 +6,10 @@
 //           the list's top corner - the list stays readable
 //   🔓    - the moment it unlocks: in the 🔒's place on the same soft background, fading out
 // The hint never takes the mouse (the window passes it through while locked anyway).
+// A compact bound (망호 스캐너 잠금 때 매우 작게, 1.10.0 - the tile): an element marked data-lock-compact
+// that is showing. The hints fit it: the big one fills it with the attribute's short words, the
+// small one sits in its bottom-right corner; while the big one shows, what is marked data-lock-fade
+// fades (lock.css) so the words read cleanly. Without one (the widget, the full list) nothing changes.
 // The switch (user 2026-11-27): a padlock button put first in the header (data-button) - a line
 // drawing, not the 🔒 emoji (on a post line that means "암호 있음"): dim and open = off, bright
 // and closed = on. Fixed size (글자 % leaves it; 배율 scales it with the rest). Locked, it passes
@@ -76,15 +80,26 @@
     return l === Infinity ? null : { l, t, r, b };
   }
 
+  // the compact bound showing now (see the top), or null
+  function compact() {
+    const e = document.querySelector('[data-lock-compact]');
+    if (!e) return null;
+    const r = e.getBoundingClientRect();
+    return r.width >= 1 && r.height >= 1 ? { e, r } : null;
+  }
+
   function place() {
     if (el.hidden) return;
     const bx = box();
     if (!bx) return;
     const on = smallOn && document.querySelector(smallOn);
     const at = on && on.getBoundingClientRect();
-    const cover = el.classList.contains('small') && at && at.width >= 1;
-    el.style.width = cover ? `${at.width}px` : '';            // the small 🔒 covers the ☰ exactly
-    el.style.height = cover ? `${at.height}px` : '';
+    const small = el.classList.contains('small');
+    const cover = small && at && at.width >= 1;
+    const c = compact();
+    const fill = !small && c;                                 // the big one fills the compact bound
+    el.style.width = cover ? `${at.width}px` : fill ? `${c.r.width}px` : '';    // the small 🔒 covers the ☰ exactly
+    el.style.height = cover ? `${at.height}px` : fill ? `${c.r.height}px` : '';
     const w = el.offsetWidth;
     const h = el.offsetHeight;
     const vw = document.documentElement.clientWidth;
@@ -94,7 +109,13 @@
     if (cover) {
       x = at.left;
       y = at.top;
-    } else if (el.classList.contains('small')) {
+    } else if (fill) {
+      x = c.r.left;
+      y = c.r.top;
+    } else if (small && c) {                                  // the compact bound's bottom-right corner
+      x = c.r.right - w - 5;
+      y = c.r.bottom - h - 5;
+    } else if (small) {
       x = st.side === 'left' ? bx.l + 4 : bx.r - w - 4;
       y = bx.t + 4;
     } else {
@@ -115,8 +136,12 @@
     const kind = d.state === 'unlocking' ? 'unlock' : locked ? d.hint : 'none';
     // unlocking keeps the shape the hint had - the 🔓 in the 🔒's place, big or small on the ☰ (1.9.3)
     const wasSmall = !el.hidden && el.classList.contains('small');
+    const c = compact();
     el.hidden = kind === 'none';
     el.className = kind === 'unlock' ? `unlock ${wasSmall ? 'small' : 'big'}` : kind;
+    el.classList.toggle('compact', !!c);
+    text.textContent = c ? c.e.dataset.lockCompact : '마우스를 흔들어 해제하세요';
+    document.body.classList.toggle('lock-big', kind === 'big');     // data-lock-fade (lock.css)
     icon.textContent = kind === 'unlock' ? '🔓' : '🔒';
     place();
     if (kind === 'big' && d.wiggle !== was.wiggle) {
