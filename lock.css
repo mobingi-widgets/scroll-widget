@@ -1,0 +1,25 @@
+/* lock.css - 잠금 (lock.js / lock-ui.js; same file in both overlays). Locked: everything but the
+   hint dims (--lock-dim: half the 투명도, against the window's own opacity); the 🔒 hint over it. */
+body.locked > :not(#lockhint) { opacity: var(--lock-dim, .5); transition: opacity .25s; }
+
+#lockhint {
+  position: fixed; z-index: 1000; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 14px 18px 12px; border: 1px solid rgba(255,255,255,.16); border-radius: 14px;
+  background: rgba(16,19,25,.94); box-shadow: 0 6px 22px rgba(0,0,0,.5);
+  color: #f2eee6; font: 600 13px/1.35 "Malgun Gothic", "Segoe UI", system-ui, sans-serif; white-space: nowrap;
+}
+#lockhint[hidden] { display: none; }
+#lockhint .lk { font-size: 34px; line-height: 1; font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif; }
+#lockhint.unlock .lt { display: none; }
+#lockhint.small { padding: 4px 5px; gap: 0; border-radius: 8px; background: rgba(16,19,25,.85); }
+#lockhint.small .lk { font-size: 14px; }
+#lockhint.small .lt { display: none; }
+
+#lockhint .lk.wiggle { animation: lock-wiggle .24s ease-out; }
+@keyframes lock-wiggle {
+  0% { transform: rotate(0); }
+  25% { transform: rotate(-16deg); }
+  60% { transform: rotate(13deg); }
+  100% { transform: rotate(0); }
+}

@@ -24,6 +24,9 @@ const { screen } = require('electron');
 // create({ win, zoom: () => page zoom, hold: () => true while the caller owns the mouse state
 //          (dragging, a size bar, typing, a plain window), get: () => taking the mouse now?,
 //          set: (on) => switch it, onNear?: (near) => ..., every? (ms),
+//          sample?: (p) => every poll's cursor point (lock.js: leaving the list, shaking),
+//          locked?: () => true while 잠금 holds the overlay (lock.js): the mouse always passes
+//          through and the size bars stay away,
 //          cursor? (tests: a stand-in for the real cursor) })
 function create(o) {
   let rects = [];
@@ -45,6 +48,12 @@ function create(o) {
   }
   function tick() {
     if (!o.win || o.win.isDestroyed()) return;
+    if (o.sample) o.sample(cursor());
+    if (o.locked && o.locked()) {
+      if (nearOn) { nearOn = false; if (o.onNear) o.onNear(false); }
+      if (o.get()) o.set(false);
+      return;
+    }
     if (o.onNear) {
       const n = inside(near) || (nearOn && inside(keep));
       if (n !== nearOn) { nearOn = n; o.onNear(n); }

@@ -20,6 +20,7 @@ const updater = require('./updater');
 const consent = require('./consent');
 const toastLib = require('./toast-ui');
 const hitpoll = require('./hitpoll');
+const lockLib = require('./lock');
 const trayState = require('./tray-state');
 
 // The notice (이용 안내, notice.html - its <meta name="notice-version"> is the version): nothing
@@ -64,6 +65,7 @@ let game = { found: false };     // latest gamewin report from feed.py
 let height = 300;
 let interactive = false;         // the window is taking clicks right now (hitpoll.js decides)
 let hits = null;                 // hitpoll.js
+let lock = null;                 // lock.js (잠금)
 let typing = false;              // a name is being typed: keep focus and clicks
 let charSwitched = false;        // a character switch was seen; toast it with the next snapshot
 // Window-app mode (user, 2026-11-27): with no game window there is nothing to lay the
@@ -713,6 +715,7 @@ function menuItems() {
   const items = [];
   const probs = problems();
   for (const p of probs) items.push({ type: 'info', label: `⚠ ${p}`, warn: true });
+  items.push(...(lock ? lock.topItems() : []));      // 잠금 해제 (the tray's menu, while locked)
   const ok = sync.status === 'ok' && !sync.feedDead;
   const value = ok ? (sync.t ? `${ago(sync.t)} 전` : '')
     : sync.feedDead ? '피드 재시작 중' : { retry: '재시도 중', offline: '연결 끊김', loading: '읽는 중' }[sync.status] || sync.status;
@@ -729,6 +732,7 @@ function menuItems() {
     type: 'segment', id: 'show', label: '표시', tip: '숨기면 트레이 아이콘으로 다시 표시합니다',
     options: [['always', '항상'], ['game', '게임 앞'], ['hidden', '숨김']].map(([id, l]) => ({ id, label: l, on: cfg.show === id })),
   });
+  items.push(...(lock ? lock.menuItems() : []));     // 잠금 [끔 | 켬]
   items.push({
     type: 'segment', id: 'wings', label: '날개 하루', tip: '날개 증감의 하루 경계 (게임 일일 초기화 시각)',
     options: [[null, '미정'], ['05:00', '5시'], ['06:00', '6시'], ['07:00', '7시'], ['09:00', '9시']].map(([id, l]) => ({ id: id || '', label: l, on: (sync.wingsReset || null) === id })),
@@ -759,6 +763,7 @@ function menuItems() {
 // -> keep the menu open (the line changed in place)?
 function menuAct(id, opt) {
   if (id.startsWith('upd-')) return uui ? uui.menuAct(id) : false;
+  if (id.startsWith('lock')) return lock ? lock.menuAct(id, opt) : false;
   switch (id) {
     case 'refresh': refreshNow(); return false;
     case 'recipes': toFeed({ cmd: 'recipes' }); return false;
@@ -996,10 +1001,19 @@ if (!app.requestSingleInstanceLock()) {
       gameRect: gameRectDip, gameVisible, zoom: () => zoom, always: !!SHOT,
     });
     createTipWindow();
+    // 잠금 (lock.js): off the list 3 s -> dimmed, the mouse passes; shake on it to unlock
+    lock = lockLib.create({
+      win, zoom: () => zoom, ipc: ipcMain, toPage,
+      enabled: () => cfg.lock === true, save: (on) => saveCfg({ lock: on }),
+      appMode: () => appMode,
+      blocked: () => !!(ctx && ctx.isOpen()) || isDragging() || sizing || typing,
+      opacity: () => cfg.opacity || 1, side: () => (cfg.align === 'right' ? 'right' : 'left'),
+    });
     // click-through from the cursor position (hitpoll.js) - not from forwarded mouse moves, which
     // stop while the game (run as administrator) is in front
     hits = hitpoll.create({
       win, zoom: () => zoom,
+      sample: (p) => lock.sample(p), locked: () => lock.locked(),
       hold: () => isDragging() || sizing || typing || appMode,
       onNear: showBars,
       get: () => interactive,
