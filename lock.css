@@ -17,6 +17,12 @@ body.locked #root { opacity: var(--lock-dim, .5); transition: opacity .25s; }
    The 🔓 moment stays solid (the window at full opacity then, the list back to normal). */
 #lockhint.big, #lockhint.small { background: rgba(16,19,25,.56); border-color: rgba(255,255,255,.1); box-shadow: 0 4px 14px rgba(0,0,0,.25); }
 #lockhint.big .lk, #lockhint.big .lt, #lockhint.small .lk { opacity: .72; }
+/* the big one: no card - a soft ellipse, a touch darker than the card was at its middle, fading to
+   nothing well inside its box, so no edge or box shape shows (user 2026-11-27, 1.9.2) */
+#lockhint.big {
+  padding: 24px 50px 22px; border-color: transparent; box-shadow: none;
+  background: radial-gradient(ellipse closest-side at center, rgba(16,19,25,.64) 0%, rgba(16,19,25,.58) 42%, rgba(16,19,25,.3) 72%, rgba(16,19,25,0) 100%);
+}
 #lockhint .lk { font-size: 34px; line-height: 1; font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif; }
 #lockhint.unlock .lt { display: none; }
 #lockhint.small { box-sizing: border-box; justify-content: center; padding: 0 4px; gap: 0; border-radius: 6px; }

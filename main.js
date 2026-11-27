@@ -47,7 +47,7 @@ function makeUpdateUi() {
       appDir: __dirname, keep: ['node_modules', 'data', 'icons', '.git', '.gitignore', '.gitattributes'],
       launch: path.join(__dirname, 'node_modules', 'electron', 'dist', 'electron.exe'), launchArgs: '.', launchCwd: __dirname,
     }),
-    cfg: () => cfg, saveCfg, near: () => gameRectDip(),
+    cfg: () => cfg, saveCfg, near: () => gameRectDip(), avoid: overlayRects,
     // short messages go to the toast window (if toasts are off: dropped, as before); the rest to the page
     page: (m) => { if (m.type !== 'update-toast' || !notify({ text: m.text, level: m.level, sec: m.sec, by: '업데이트' })) toPage(m); },
     quit: () => app.quit(),
@@ -353,6 +353,22 @@ function raise() {
   if (!win || win.isDestroyed() || !win.isVisible() || appMode) return;
   win.setAlwaysOnTop(true, 'screen-saver');
   win.moveTop();
+  // the update window and the notice stay above the overlay (1.6.2, user report: covered within 2 s);
+  // with either up, the tooltip and a toast go back above them
+  const up = [uui && uui.keepTop(), consent.keepTop()];
+  if (up.some(Boolean)) {
+    for (const w of [tipWin, toast && toast.window()]) if (w && !w.isDestroyed() && w.isVisible()) w.moveTop();
+  }
+}
+
+// The overlays a dialog of ours (update window, notice) opens clear of (1.9.2 / 1.6.2, user report:
+// it went under them): this program's window and the other program's (dock.others(), the shared
+// position file) - DIP rectangles.
+function overlayRects() {
+  const out = [];
+  if (win && !win.isDestroyed() && win.isVisible()) out.push(win.getBounds());
+  if (dock) for (const r of dock.others()) out.push({ x: r.x, y: r.y, width: r.w, height: r.h });
+  return out;
 }
 
 // How tall the content may be (CSS px): over the game, the area's height (area: true - the
@@ -779,7 +795,7 @@ function menuAct(id, opt) {
     case 'scale': saveCfg({ scale: stepped(opt, SCALE, cfg.scale) }); place(); return true;
     case 'text': saveCfg({ text: stepped(opt, TEXT, cfg.text) }); toPage(windowState()); return true;
     case 'opacity': setOpacity(Number(opt)); return true;
-    case 'notice': consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: 'view', zoom }); return false;
+    case 'notice': consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: 'view', zoom, avoid: overlayRects }); return false;
     case 'quit': app.quit(); return false;
     default: return false;
   }

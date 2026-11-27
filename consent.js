@@ -16,6 +16,7 @@
 const { BrowserWindow, ipcMain, screen } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { clearOf } = require('./dock');
 
 let open = null;                      // { win, promise } while a notice is up
 
@@ -49,20 +50,27 @@ async function drawn(win) {
 // there: the swap script (apply-update.ps1) rolls back unless the new version reports
 // within 60 s, and reading the notice must not count against that.
 // zoom: the overlay's text zoom (글자 작게/중간/크게), so the notice reads at the same size.
-function ask({ dir, title, mode = 'ask', iconDir, onShown, zoom = 1 }) {
+// avoid: () => DIP rects - the overlays (this program's and the others') to open clear of (1.9.2 /
+// 1.6.2: it could open under them); it is kept above them with keepTop().
+function ask({ dir, title, mode = 'ask', iconDir, onShown, zoom = 1, avoid }) {
   if (open) { open.win.moveTop(); return open.promise; }
   const z = zoom > 0.3 && zoom < 4 ? zoom : 1;
   const a = screen.getPrimaryDisplay().workArea;
   const w = Math.min(Math.round(560 * z), a.width - 40);
   const h = Math.min(Math.round(700 * z), a.height - 40);
   const icon = path.join(iconDir || dir, 'icon.png');
+  const want = { x: Math.round(a.x + (a.width - w) / 2), y: Math.round(a.y + (a.height - h) / 2), width: w, height: h };
+  let rects = [];
+  try { rects = avoid ? avoid() : []; } catch { /* placed in the middle */ }
+  const at = clearOf(want, rects, a);
   const win = new BrowserWindow({
-    width: w, height: h, x: Math.round(a.x + (a.width - w) / 2), y: Math.round(a.y + (a.height - h) / 2),
+    width: w, height: h, x: at.x, y: at.y,
     show: false, resizable: true, minimizable: false, maximizable: false, alwaysOnTop: true,
     title, backgroundColor: '#14171d', autoHideMenuBar: true, icon: fs.existsSync(icon) ? icon : undefined,
     webPreferences: { preload: path.join(__dirname, 'notice-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.setMenu(null);
+  win.setAlwaysOnTop(true, 'screen-saver');     // the overlays' level: keepTop() then keeps it above them
   let done = false;
   let resolve;
   const promise = new Promise((r) => { resolve = r; });
@@ -97,4 +105,14 @@ function ask({ dir, title, mode = 'ask', iconDir, onShown, zoom = 1 }) {
   return promise;
 }
 
-module.exports = { ask, noticeVersion };
+// the overlay raises itself every 2 s (main.js raise); this, right after, keeps an open notice
+// above it (1.9.2 / 1.6.2). -> whether one is up
+function keepTop() {
+  const w = open && open.win;
+  if (!w || w.isDestroyed() || !w.isVisible()) return false;
+  w.setAlwaysOnTop(true, 'screen-saver');
+  w.moveTop();
+  return true;
+}
+
+module.exports = { ask, noticeVersion, keepTop };

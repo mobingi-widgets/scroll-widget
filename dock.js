@@ -347,4 +347,26 @@ function create(opts) {
     widthStart, widthEnd, widthActive: () => !!wdrag, heightStart, heightEnd, heightActive: () => !!hdrag };
 }
 
-module.exports = { create, areaRect, GAP };
+// A dialog of ours (the update window, the notice) clear of the overlays (user report 2026-11-27,
+// 1.9.2 / 1.6.2: it went under them). want = where it would go ({ x, y, width, height }, DIP),
+// avoid = the overlays' rectangles (this program's and others() - each program re-raises its own
+// overlay, so a dialog stays out from under them by its place, not by a z-order fight), area =
+// the work area. -> want when it overlaps none; else the nearest spot beside one of them (left,
+// right, above, below, GAP apart) inside the area that overlaps none; else want (nothing fits).
+function clearOf(want, avoid, area) {
+  const list = (avoid || []).filter((a) => a && a.width > 0 && a.height > 0);
+  const hits = (r) => list.some((a) => r.x < a.x + a.width && a.x < r.x + r.width && r.y < a.y + a.height && a.y < r.y + r.height);
+  const inside = (r) => r.x >= area.x && r.y >= area.y && r.x + r.width <= area.x + area.width && r.y + r.height <= area.y + area.height;
+  if (!hits(want)) return want;
+  const spots = [];
+  for (const a of list) {
+    spots.push({ ...want, x: a.x - GAP - want.width }, { ...want, x: a.x + a.width + GAP },
+      { ...want, y: a.y - GAP - want.height }, { ...want, y: a.y + a.height + GAP });
+  }
+  const free = spots.map((r) => ({ ...r, x: Math.round(r.x), y: Math.round(r.y) })).filter((r) => inside(r) && !hits(r));
+  if (!free.length) return want;
+  const far = (r) => Math.hypot(r.x - want.x, r.y - want.y);
+  return free.sort((p, q) => far(p) - far(q))[0];
+}
+
+module.exports = { create, areaRect, clearOf, GAP };

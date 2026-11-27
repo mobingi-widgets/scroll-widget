@@ -86,8 +86,30 @@ function render(m) {
     $('err').textContent = m.error || '';
     buttons(m.tampered ? { text: '닫기', act: 'close', cls: 'primary green' } : { text: '다시 시도', act: 'retry' }, m.tampered ? null : { text: '닫기', act: 'close' }, false);
   }
-  // measured at once (a frame may not come while the window is not shown yet)
-  window.upd.act('height', document.getElementById('card').getBoundingClientRect().height + 14);
+  report();                            // at once (a frame may not come while the window is not shown yet)
+}
+
+// The window's height = the card's whole height (+ its margin), told to update-ui.js every time it
+// changes - not only once at render (1.9.2 / 1.6.2, user report: the bottom was cut off). The
+// page can lay out again after that first measurement: the zoom lands after the width did (other
+// line breaks), a font (the 🔒 in the notes) comes late. Measured without the cap that keeps the
+// card inside a short window (there the notes scroll), so the window can grow back.
+let told = 0;
+function report() {
+  const card = $('card');
+  const cap = card.style.maxHeight;
+  card.style.maxHeight = 'none';
+  const h = Math.ceil(card.getBoundingClientRect().height + 14);
+  card.style.maxHeight = cap;
+  if (h === told) return;
+  told = h;
+  window.upd.act('height', h);
+}
+new ResizeObserver(report).observe($('card'));
+window.addEventListener('resize', report);
+if (document.fonts) {
+  document.fonts.ready.then(report);
+  document.fonts.addEventListener('loadingdone', report);
 }
 
 $('skip').onclick = () => window.upd.act('skip');

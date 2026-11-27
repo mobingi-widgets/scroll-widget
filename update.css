@@ -1,13 +1,25 @@
 /* The update window (update-ui.js): one rounded card, the overlays' dark palette, amber for
    the update action (after Scouter Lite's update dialog), red for failures. */
 * { box-sizing: border-box; }
-html, body { margin: 0; background: transparent; overflow: hidden; }
+html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
 body { font: 400 13px/1.5 "Malgun Gothic", "Segoe UI", system-ui, sans-serif; color: #e7e3da; user-select: none; }
+/* the window is as tall as the card (update.js reports it); a window capped by a short screen
+   keeps the card inside it - the notes give way and scroll, the buttons stay (1.9.2 / 1.6.2) */
 #card {
   margin: 6px; padding: 16px 18px 14px; border-radius: 14px; background: #181c23;
   border: 1px solid rgba(255,255,255,.14); box-shadow: 0 8px 28px rgba(0,0,0,.55);
+  display: flex; flex-direction: column; max-height: calc(100vh - 12px); overflow-y: auto;
 }
+#card > * { flex: none; }
+#card > #notes { flex: 0 1 auto; min-height: 0; }
 h1 { margin: 0 0 6px; font-size: 16px; color: #fff; }
+/* the title line moves the window (it has no frame): a drag handle, its grip at the right end -
+   as in the 차단·메모 window (1.9.2 / 1.6.2) */
+h1 { display: flex; align-items: center; -webkit-app-region: drag; }
+h1::after {
+  content: ''; flex: none; width: 15px; height: 10px; margin-left: auto;
+  background: radial-gradient(circle, rgba(255,255,255,.32) 1.2px, transparent 1.7px) 0 0 / 5px 5px;
+}
 h1.bad { color: #ff6b5e; }
 #body { margin: 0 0 10px; color: #cfcabe; white-space: pre-wrap; }
 #notes {

@@ -14,6 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const updater = require('./updater');
 const consent = require('./consent');
+const { clearOf } = require('./dock');
 
 const EVERY_MS = 6 * 3600 * 1000;
 const W = 400;
@@ -21,10 +22,12 @@ const W = 400;
 function create(o) {
   // o: { dir, repo, app, version, title, userData, canInstall(), stageRoot(), installOpts() -> {appDir, keep,
   //      launch, launchArgs, launchCwd}, previousDir(), cfg(), saveCfg(patch), near() -> DIP rect | null,
-  //      page(msg), quit(), zoom() (optional: the overlay's text zoom - the window follows it) }
+  //      page(msg), quit(), zoom() (optional: the overlay's text zoom - the window follows it),
+  //      avoid() -> DIP rects (optional: the overlays - this program's and the others' - to stay clear of) }
   const st = { info: null, error: '', at: 0, checking: false, phase: 'idle', progress: null, tampered: false };
   let win = null;
   let winH = 200;
+  let moved = false;         // the user dragged it by its title line: it stays there
   let timer = null;
   const okFile = path.join(o.userData, 'update-ok.json');
   const logFile = path.join(o.userData, 'update.log');
@@ -60,14 +63,32 @@ function create(o) {
   // ------------------------------------------------------------------- the window
   // the same text size as the overlay (its zoom: game window size x 글자 작게/중간/크게)
   const zoom = () => { const z = o.zoom ? Number(o.zoom()) : 1; return z > 0.3 && z < 4 ? z : 1; };
+  // Over the game window, a third down - clear of the overlays (o.avoid: ours and the other
+  // program's; 1.9.2 / 1.6.2, it went under them); within the screen's work area, not the game
+  // window's (a small windowed game cut its bottom off). Its height follows the page (update.js
+  // reports the card's whole height whenever it changes); taller than the screen, its notes scroll.
+  // Once the user has dragged it by its title line, only its size changes.
   function placeWin() {
     if (!win || win.isDestroyed()) return;
     const z = zoom();
     if (Math.abs(win.webContents.getZoomFactor() - z) > 0.001) win.webContents.setZoomFactor(z);
     const g = o.near() || screen.getPrimaryDisplay().workArea;
-    const w = Math.round(W * z);
-    const h = Math.min(Math.round(winH * z), g.height - 20);
-    win.setBounds({ x: Math.round(g.x + (g.width - w) / 2), y: Math.round(g.y + Math.max(10, (g.height - h) / 3)), width: w, height: h });
+    const a = screen.getDisplayMatching(g).workArea;
+    const w = Math.min(Math.round(W * z), a.width - 20);
+    const h = Math.min(Math.round(winH * z), a.height - 20);
+    const inArea = (x, y) => ({ x: Math.round(Math.max(a.x + 10, Math.min(x, a.x + a.width - w - 10))),
+      y: Math.round(Math.max(a.y + 10, Math.min(y, a.y + a.height - h - 10))), width: w, height: h });
+    if (moved) { const b = win.getBounds(); win.setBounds(inArea(b.x, b.y)); return; }
+    const want = inArea(g.x + (g.width - w) / 2, g.y + Math.max(10, (g.height - h) / 3));
+    win.setBounds(clearOf(want, o.avoid ? o.avoid() : [], a));
+  }
+  // the overlay raises itself every 2 s (main.js raise); this, right after, keeps the window
+  // above it (as the 차단·메모 window). -> whether it is up
+  function keepTop() {
+    if (!win || win.isDestroyed() || !win.isVisible()) return false;
+    win.setAlwaysOnTop(true, 'screen-saver');
+    win.moveTop();
+    return true;
   }
   function openWindow() {
     if (win && !win.isDestroyed()) { send(); win.moveTop(); return; }
@@ -77,6 +98,8 @@ function create(o) {
       webPreferences: { preload: path.join(__dirname, 'update-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
     });
     win.setAlwaysOnTop(true, 'screen-saver');
+    moved = false;
+    win.on('will-move', () => { moved = true; });     // (only a move by the user, not setBounds)
     win.webContents.on('will-navigate', (e) => e.preventDefault());
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.loadFile(path.join(__dirname, 'update.html'));
@@ -149,7 +172,7 @@ function create(o) {
       let answer = false;
       try {
         const dir = await updater.fetchNotice(i, path.join(o.stageRoot(), 'notice'));
-        answer = await consent.ask({ dir, title: `${o.title} — 바뀐 이용 안내`, mode: 'update', iconDir: o.dir, zoom: zoom() });
+        answer = await consent.ask({ dir, title: `${o.title} — 바뀐 이용 안내`, mode: 'update', iconDir: o.dir, zoom: zoom(), avoid: o.avoid });
       } catch (e) {
         st.phase = 'error';
         st.error = String((e && e.message) || e);
@@ -327,7 +350,7 @@ function create(o) {
     }
   }
 
-  return { start, check, show, afterStart, rollback, hasPrevious, menuItems, menuAct, pageState, demo, selfTest, state: () => st };
+  return { start, check, show, afterStart, rollback, hasPrevious, menuItems, menuAct, pageState, demo, selfTest, keepTop, state: () => st };
 }
 
 module.exports = { create };
