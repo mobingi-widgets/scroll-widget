@@ -579,6 +579,8 @@ async function demoShots() {
   tipAnchor = null;
   placeTip();
   Object.assign(sync, { week: snap.week || sync.week, status: 'ok', t: Date.now() / 1000 - 20, char: snap.char || null });
+  // the menu as it nearly always is: the update check has run (v… 최신)
+  Object.assign(uui.state(), { info: { available: false }, at: Date.now() - 12 * 60000, error: '' });
   popupMenu();
   await wait(1200);
   await save(ctx.window(), 'menu');
