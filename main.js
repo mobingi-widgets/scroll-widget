@@ -490,6 +490,11 @@ async function demoShots() {
   await wait(400);
   await save(win, 'band');
   await js('window.__marks && window.__marks([])');
+  // a newer release: the bubble under the ☰
+  toPage({ type: 'update', version: '9.9.0', pill: true });
+  await wait(400);
+  await save(win, 'update-bubble');
+  toPage({ type: 'update', version: '', pill: false });
   for (const t of ['items', 'chars', 'mats']) {
     await js(`window.__setExpanded(true); document.querySelector('[data-tab=${t}]').click()`);
     await wait(700);

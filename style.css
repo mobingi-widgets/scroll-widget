@@ -233,11 +233,20 @@ body.moving #menu, #menu:active { cursor: grabbing; }
   content: ''; position: absolute; top: 1px; right: 1px; width: 6px; height: 6px; border-radius: 50%;
   background: var(--green); box-shadow: 0 0 0 1px rgba(0,0,0,.6);
 }
-/* "새로운 업데이트가 있습니다!" (after Scouter Lite's green pill) */
+/* "새로운 업데이트가 있습니다!" - a bubble hanging under the ☰ like Scouter Lite's (user 2026-11-27):
+   it takes no room (nothing moves); hidden while the menu is open or an update is being installed.
+   renderer.js placeBubble() puts it there. */
 .updpill {
-  display: inline-block; margin: 3px 0 1px; padding: 0 10px; border-radius: 9px; font-size: 11px; line-height: 17px;
-  cursor: pointer; background: #17a88a; color: #fff;
+  position: absolute; z-index: 6; padding: 3px 8px; border-radius: 6px; font-size: 10px; line-height: 13px;
+  white-space: nowrap; cursor: pointer; color: #fff; background: #10b981; text-shadow: none;
+  box-shadow: 0 4px 10px rgba(5, 150, 105, .25), 0 1px 3px rgba(0, 0, 0, .35);
 }
+.updpill:hover { background: #34d399; }
+.updpill::before {                       /* the caret pointing at the ☰ */
+  content: ''; position: absolute; top: -4px; right: var(--caret, 6px);
+  border: 4px solid transparent; border-top: 0; border-bottom-color: #10b981;
+}
+.updpill:hover::before { border-bottom-color: #34d399; }
 .updpill[hidden] { display: none; }
 @keyframes pulse { 50% { filter: brightness(1.35); } }
 /* the height line under the open panel: drag = the overlay's height limit (user 2026-11-27);

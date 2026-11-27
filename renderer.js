@@ -290,8 +290,29 @@ document.addEventListener('mousedown', (e) => {
 }, true);
 
 // problems from main.js: the ☰ becomes a red ⚠ and says what is wrong
-// "새로운 업데이트가 있습니다!" in the band: click = the update window
+// "새로운 업데이트가 있습니다!" - a bubble under the ☰ that takes no room (click: the update
+// window); hidden while the menu is open
 $('updpill').addEventListener('click', () => window.widget.ui('update-open'));
+let updPill = false;
+let menuOpen = false;
+function drawPill() {
+  $('updpill').hidden = !updPill || menuOpen;
+  placeBubble();
+}
+// under the ☰, its edge on the ☰'s edge toward the content, kept inside the window; the caret at the ☰
+function placeBubble() {
+  const b = $('updpill');
+  if (b.hidden) return;
+  const m = $('menu').getBoundingClientRect();
+  const r = $('root').getBoundingClientRect();
+  const w = b.offsetWidth;
+  let left = document.body.classList.contains('left') ? m.left - r.left : m.right - r.left - w;
+  left = Math.max(2, Math.min(left, r.width - w - 2));
+  b.style.top = `${Math.round(m.bottom - r.top + 4)}px`;
+  b.style.left = `${Math.round(left)}px`;
+  b.style.setProperty('--caret', `${Math.round(Math.max(4, Math.min(w - 12, left + w - (m.left - r.left + m.width / 2) - 4)))}px`);
+}
+new ResizeObserver(placeBubble).observe(document.querySelector('.head'));
 let lastProblemList = [];
 let updVersion = '';                   // a newer release (main.js update check): dot on the ☰
 function setProblems(list) {
@@ -401,6 +422,7 @@ wsizer.addEventListener('pointerdown', (e) => {
 wsizer.addEventListener('dblclick', () => { if (!blocked()) window.widget.ui('width-reset'); });
 new ResizeObserver(() => {
   fitTab();
+  placeBubble();
   window.widget.ui('height', $('root').getBoundingClientRect().height + 2);
 }).observe($('root'));
 
@@ -950,6 +972,7 @@ window.widget.onFeed((d) => {
     document.body.classList.toggle('left', d.align !== 'right');
     document.body.classList.toggle('wbar-left', d.wside === 'left');
     document.body.classList.toggle('wbar-right', d.wside !== 'left');
+    placeBubble();                       // the ☰ may have moved to the other end
     if (d.width) setWidthTip(d.width, d.defWidth);
   } else if (d.type === 'width') {
     // the side bar is being dragged: a live label; gone when let go
@@ -982,11 +1005,13 @@ window.widget.onFeed((d) => {
     // update window it opens (never by itself)
     updVersion = d.version || '';
     setProblems(lastProblemList);
-    const pill = $('updpill');
-    pill.hidden = !d.pill;
-    pill.textContent = d.pill ? `새로운 업데이트가 있습니다! (v${d.version})` : '';
+    $('updpill').textContent = '새로운 업데이트가 있습니다!';
+    updPill = !!d.pill;
+    drawPill();
   } else if (d.type === 'menu') {
     blockUntil = d.open ? Infinity : Date.now() + 300;
+    menuOpen = !!d.open;
+    drawPill();
   }
 });
 

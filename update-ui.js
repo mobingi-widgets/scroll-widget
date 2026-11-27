@@ -39,7 +39,8 @@ function create(o) {
     const v = i && i.available ? i.version : null;
     o.page({
       type: 'update', version: v,
-      pill: !!(v && cfg().skipVersion !== v && cfg().noticeDeclined !== (i.notice && i.notice.version)),
+      // the bubble under the ☰: not for a skipped version, nor while it is being fetched / installed
+      pill: !!(v && cfg().skipVersion !== v && cfg().noticeDeclined !== (i.notice && i.notice.version) && !busy()),
     });
   }
   function model() {
@@ -50,7 +51,11 @@ function create(o) {
       canInstall: st.demo || o.canInstall(), progress: st.progress, error: st.error, tampered: st.tampered, title: o.title,
     };
   }
-  function send() { if (win && !win.isDestroyed()) win.webContents.send('update', model()); }
+  let lastBusy = false;
+  function send() {
+    if (win && !win.isDestroyed()) win.webContents.send('update', model());
+    if (busy() !== lastBusy) { lastBusy = busy(); pageState(); }      // the bubble hides while busy
+  }
 
   // ------------------------------------------------------------------- the window
   // the same text size as the overlay (its zoom: game window size x 글자 작게/중간/크게)
