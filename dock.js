@@ -226,12 +226,15 @@ function create(opts) {
 
   // ------------------------------------------------------------- width bar
   // The thin bar on the edge away from the anchored side (user 2026-11-27): while it is
-  // dragged that edge follows the cursor. side = the edge being dragged ('left' | 'right').
-  // The width (CSS px, the page's own unit) snaps to the 4-px grid, stays within [min, max]
-  // and stops a gap short of another overlay beside it. onWidth(css, done) applies it.
+  // dragged that edge moves with the cursor. side = the edge being dragged ('left' | 'right').
+  // The width (CSS px, the page's own unit) changes by the cursor's way from where it was
+  // pressed, in 4-px steps, within [min, max], stopping a gap short of another overlay beside it.
+  // onWidth(css, done) applies it. (Until 1.6.1 / 1.4.3 the edge jumped to the cursor itself: a
+  // press a few px inside the bar shrank the overlay 2-6 px, and the bar slid away from a
+  // double-click.)
   let wdrag = null;
   let wtimer = null;
-  function widthStart({ side, zoom, min, max, onWidth }) {
+  function widthStart({ side, zoom, min, max, base, onWidth }) {
     const b = win.getBounds();
     const anchor = side === 'left' ? b.x + b.width : b.x;
     // the other overlays beside it (they do not move meanwhile): the farthest the edge may go
@@ -241,17 +244,21 @@ function create(opts) {
       if (side === 'left' && o.x + o.w <= b.x + 1) room = Math.min(room, anchor - (o.x + o.w) - GAP);
       if (side === 'right' && o.x >= b.x + b.width - 1) room = Math.min(room, o.x - anchor - GAP);
     }
-    wdrag = { side, zoom, min, max, onWidth, anchor, room, last: null };
+    const from = Number.isFinite(base) ? base : Math.round(b.width / zoom);
+    wdrag = { side, zoom, min, max, onWidth, anchor, room, from, x0: opts.cursor().x, last: from };
     clearInterval(wtimer);
     wtimer = setInterval(() => widthStep(false), 16);
   }
   function widthStep(done) {
     if (!wdrag || !win || win.isDestroyed()) return;
     const d = wdrag;
-    const c = opts.cursor();
-    const dip = Math.min(d.side === 'left' ? d.anchor - c.x : c.x - d.anchor, d.room);
-    const top = Math.floor(Math.min(d.max, d.room / d.zoom) / GRID) * GRID;        // on the grid too
-    const css = clamp(Math.round(dip / d.zoom / GRID) * GRID, d.min, Math.max(d.min, top));
+    const moved = (d.side === 'left' ? d.x0 - opts.cursor().x : opts.cursor().x - d.x0) / d.zoom;   // CSS px, + = wider
+    const steps = Math.round(moved / GRID);
+    let css = d.from;                                    // not moved (a click, a double-click): unchanged
+    if (steps) {
+      const top = Math.floor(Math.min(d.max, d.room / d.zoom) / GRID) * GRID;        // on the grid too
+      css = clamp(d.from + steps * GRID, d.min, Math.max(d.min, top));
+    }
     if (css !== d.last || done) { d.last = css; d.onWidth(css, done); }
   }
   function widthEnd() {

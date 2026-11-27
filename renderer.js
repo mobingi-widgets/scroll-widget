@@ -416,12 +416,15 @@ wsizer.addEventListener('pointerdown', (e) => {
     wsizer.removeEventListener('pointercancel', done);
     document.body.classList.remove('wsizing');
     window.widget.ui('width-drag', { on: false });
-    blockUntil = Date.now() + 300;
+    blockUntil = wsizerBlock = Date.now() + 300;
   };
   wsizer.addEventListener('pointerup', done);
   wsizer.addEventListener('pointercancel', done);
 });
-wsizer.addEventListener('dblclick', () => { if (!blocked()) window.widget.ui('width-reset'); });
+// double-click = the default width. Its own release just set the short click block (blockUntil =
+// wsizerBlock) - that one must not swallow it (until 1.6.1 / 1.4.3 the reset never happened)
+let wsizerBlock = 0;
+wsizer.addEventListener('dblclick', () => { if (!blocked() || blockUntil === wsizerBlock) window.widget.ui('width-reset'); });
 new ResizeObserver(() => {
   fitTab();
   placeBubble();

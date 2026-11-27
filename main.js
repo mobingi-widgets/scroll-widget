@@ -330,6 +330,7 @@ function widthDrag(on, min) {
   tipAnchor = null;
   placeTip();
   dock.widthStart({
+    base: cfg.width,                    // the width moves by the cursor's way from the press
     side: widthSide(), zoom, min: Math.max(180, Math.ceil(min || 0)), max: Math.max(DEFAULTS.width, max),
     onWidth: (w, done) => {
       cfg.width = w;                       // live; kept when let go
