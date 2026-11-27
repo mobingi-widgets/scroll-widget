@@ -164,7 +164,7 @@ function create(o) {
 
   // the ☰ lines (the same in both programs) and their actions (-> keep the menu open?)
   // 알림 = off or where, in one line (small screen pictures; the tray's menu keeps the words).
-  // 등급 and 시험 come apart (moreItems) - rarely used, the program puts them low in its menu.
+  // 등급 and 시험 are rarely used: buttons for the menu's bottom bar (barButtons).
   function menuItems() {
     const s = settings();
     return [
@@ -173,12 +173,15 @@ function create(o) {
           ...[['top', '위'], ['center', '가운데'], ['bottom', '아래']].map(([id, l]) => ({ id, label: l, glyph: id, on: s.on && s.pos === id }))] },
     ];
   }
-  function moreItems() {
+  // 알림 등급 steps 모두 -> 주의 -> 행동 per click; the hint says which is on
+  function barButtons() {
     const s = settings();
+    const levels = [['info', '모두'], ['warn', '주의 이상'], ['action', '행동이 필요한 것만']];
+    const i = Math.max(0, levels.findIndex(([id]) => id === s.min));
     return [
-      { type: 'segment', id: 'toast-min', label: '알림 등급', tip: '모두 · 주의 이상 · 행동이 필요한 것만',
-        options: [['info', '모두'], ['warn', '주의'], ['action', '행동']].map(([id, l]) => ({ id, label: l, on: s.min === id })) },
-      { type: 'item', id: 'toast-test', label: '시험 알림', disabled: !s.on },
+      { id: 'toast-min', icon: 'bell', label: '알림 등급', tip: `알림 등급: ${levels[i][1]} · 누르면 ${levels[(i + 1) % 3][1]}`,
+        options: levels.map(([id], k) => ({ id, label: ['모두', '주의', '행동'][k], on: k === i })) },
+      { id: 'toast-test', icon: 'toast', label: '시험 알림', tip: s.on ? '시험 알림 띄우기' : '시험 알림 — 알림이 꺼져 있음', disabled: !s.on },
     ];
   }
   function menuAct(id, opt) {
@@ -192,7 +195,7 @@ function create(o) {
     return false;
   }
 
-  return { notify, flush, place, menuItems, moreItems, menuAct, window: () => win };
+  return { notify, flush, place, menuItems, barButtons, menuAct, window: () => win };
 }
 
 module.exports = { create, DEFAULTS };

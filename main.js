@@ -665,12 +665,17 @@ function menuItems() {
   });
   items.push({ type: 'sep' });
   items.push(...(uui ? uui.menuItems() : []));
-  // rarely used: plain lines until the user settles how the bottom row looks
-  items.push({ type: 'item', id: 'notice', label: '이용 안내 보기' });
-  items.push({ type: 'item', id: 'reset-pos', label: '위치 초기화', tip: '옮기려면 ☰를 끕니다' });
-  items.push(...(toast ? toast.moreItems() : []));      // 알림 등급 · 시험 알림
-  items.push({ type: 'item', id: 'recipes', label: '레시피 다시 읽기', tip: '보통 30분마다 읽습니다' });
-  items.push({ type: 'item', id: 'quit', label: '종료' });
+  items.push({ type: 'sep' });
+  // rarely used: icons in one bar, 종료 at its end (user 2026-11-27)
+  items.push({
+    type: 'bar', end: { id: 'quit', icon: 'power', text: '종료', label: '종료' },
+    buttons: [
+      { id: 'notice', icon: 'info', label: '이용 안내 보기' },
+      { id: 'reset-pos', icon: 'locate', label: '위치 초기화', tip: '위치 초기화 · 옮기려면 ☰를 끕니다' },
+      ...(toast ? toast.barButtons() : []),            // 알림 등급 · 시험 알림
+      { id: 'recipes', icon: 'recipe', label: '레시피 다시 읽기', tip: '레시피 다시 읽기 · 보통 30분마다 읽습니다' },
+    ],
+  });
   return items;
 }
 

@@ -16,6 +16,8 @@
 //         shown instead of the label, glyph = 'top' | 'center' | 'bottom' - a small screen picture) }
 // A 'line' has its own buttons: actions?: [{ id, text, label, tip?, disabled? }] and toggle?: { id,
 // label, long?, on, tip? }; the line itself is clickable when it has an id.
+// A 'bar' is a row of icon buttons (the rarely used ones) and one at the far end: buttons: [{ id,
+// icon, label, tip?, disabled?, options? (a click steps to the next) }], end: { id, icon, text, label }.
 'use strict';
 
 const { BrowserWindow, ipcMain, screen, Menu } = require('electron');
@@ -152,6 +154,11 @@ function toNative(items, act) {
       out.push({ label: text(it), enabled: !!it.id && !it.disabled, click: () => act(it.id) });
       for (const a of it.actions || []) out.push({ label: a.label, enabled: !a.disabled, click: () => act(a.id) });
       if (it.toggle) out.push({ label: it.toggle.long || it.toggle.label, type: 'checkbox', checked: !!it.toggle.on, click: () => act(it.toggle.id) });
+    } else if (it.type === 'bar') {
+      for (const b of [...(it.buttons || []), ...(it.end ? [it.end] : [])]) {
+        if (b.options) out.push({ label: b.label, submenu: b.options.map((o) => ({ label: o.label, type: 'radio', checked: !!o.on, click: () => act(b.id, o.id) })) });
+        else out.push({ label: b.label, enabled: !b.disabled, click: () => act(b.id) });
+      }
     } else out.push({ label: text(it), enabled: !it.disabled, click: () => act(it.id) });
   }
   return Menu.buildFromTemplate(out);
