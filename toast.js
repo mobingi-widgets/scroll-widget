@@ -1,5 +1,5 @@
-// Toasts over the game window (main.js places this window and decides when to show
-// it). Up to three at once, the rest wait their turn; the same text arriving again
+// Toasts over the game window (toast-ui.js places this window and decides when to show
+// it; the same file in both overlays). Up to three at once, the rest wait their turn; the same text arriving again
 // while shown becomes ×n. Durations: info 4 s · warn 6 s · action until closed.
 const MAX = 3;
 const DURATION = { info: 4, warn: 6 };
@@ -9,8 +9,8 @@ const waiting = [];
 
 function report() {
   // tell main.js how tall the stack is, and whether anything is left to show
-  window.widget.toast('height', Math.ceil(stack.getBoundingClientRect().height) + 2);
-  window.widget.toast('empty', shown.length === 0 && waiting.length === 0);
+  window.toastHost.send('height', Math.ceil(stack.getBoundingClientRect().height) + 2);
+  window.toastHost.send('empty', shown.length === 0 && waiting.length === 0);
 }
 
 function drawMore() {
@@ -86,11 +86,11 @@ function add(m) {
 let hovering = false;
 document.addEventListener('mousemove', (e) => {
   const on = !!e.target.closest('.hit');
-  if (on !== hovering) { hovering = on; window.widget.toast('hover', on); }
+  if (on !== hovering) { hovering = on; window.toastHost.send('hover', on); }
 });
-window.addEventListener('mouseout', (e) => { if (!e.relatedTarget && hovering) { hovering = false; window.widget.toast('hover', false); } });
+window.addEventListener('mouseout', (e) => { if (!e.relatedTarget && hovering) { hovering = false; window.toastHost.send('hover', false); } });
 
-window.widget.onFeed((d) => {
+window.toastHost.onFeed((d) => {
   if (d.type === 'toast') add(d);
   else if (d.type === 'toast-pos') document.body.classList.toggle('bottom', d.pos === 'bottom');
   else if (d.type === 'toast-clear') { for (const t of shown.slice()) remove(t); waiting.length = 0; drawMore(); }

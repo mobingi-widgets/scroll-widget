@@ -18,6 +18,7 @@ const dockLib = require('./dock');
 const ctxLib = require('./ctxmenu');
 const updater = require('./updater');
 const consent = require('./consent');
+const toastLib = require('./toast-ui');
 
 // The notice (이용 안내, notice.html - its <meta name="notice-version"> is the version): nothing
 // starts - no game reads, no window tracking, no update check - until it is agreed to.
@@ -44,7 +45,7 @@ function makeUpdateUi() {
       launch: path.join(__dirname, 'node_modules', 'electron', 'dist', 'electron.exe'), launchArgs: '.', launchCwd: __dirname,
     }),
     cfg: () => cfg, saveCfg, near: () => gameRectDip(),
-    // short messages go to the toast window; the rest to the page (dot, pill)
+    // short messages go to the toast window (if toasts are off: dropped, as before); the rest to the page
     page: (m) => (m.type === 'update-toast' ? notify({ text: m.text, level: m.level, sec: m.sec, by: '업데이트' }) : toPage(m)),
     quit: () => app.quit(),
     zoom: () => zoom,                  // the update window reads at the overlay's text size
@@ -90,8 +91,6 @@ const DEFAULTS = { width: 270 + WIDTH_STRIP, align: 'left', ...POS.left, show: '
 // everything of this program takes it (overlay, tooltip, menu, toast, update window, notice)
 const FONT_SCALE = { small: 0.85, mid: 1, large: 1.2 };
 const WIDTH_MAX_OF_GAME = 0.4;   // the width bar stops at 40% of the game window
-const LEVEL_RANK = { info: 0, warn: 1, action: 2 };
-const TOAST_WIDTH = 380;          // DIP at the reference game height; zooms like the overlay
 const REF_GAME_HEIGHT = 680;     // DIP height the CSS sizes were set for; larger game windows zoom up
 const STALE_SEC = 90;            // no snapshot for this long = syncing has stalled
 let zoom = 1;
@@ -166,102 +165,20 @@ function pushProblems() {
 }
 
 // ------------------------------------------------------------------- toasts
+// toast-ui.js: the same source as 망호 스캐너's, but its own window and settings at run time
+// (nothing shared with the other program while running). Backlog while the game is away,
+// click-through, hidden when empty - all in there.
 
-let toastWin = null;
-let toastHeight = 60;
-let toastEmpty = true;
-let toastReady = false;
-const toastBacklog = [];          // notices that came while the game was minimised / gone
-const toastEarly = [];            // notices before the toast page loaded
+let toast = null;
 
 function gameVisible() {
   return game.found && !game.minimized;
 }
 
+// -> shown or kept for later; false = toasts are off or below the chosen level
 function notify(m) {
-  if (!cfg.toast.on) return;
-  if ((LEVEL_RANK[m.level] ?? 0) < (LEVEL_RANK[cfg.toast.min] ?? 0)) return;
-  if (!gameVisible() && !SHOT) { toastBacklog.push(m); return; }
-  sendToast(m);
+  return toast ? toast.notify(m) : false;
 }
-
-function sendToast(m) {
-  if (!toastWin || toastWin.isDestroyed()) return;
-  if (!toastReady) { toastEarly.push(m); return; }
-  toastEmpty = false;
-  placeToast();
-  toastWin.webContents.send('feed', { type: 'toast', ...m });
-}
-
-function flushBacklog() {
-  // back on screen: one summary instead of a burst
-  if (!toastBacklog.length || !gameVisible()) return;
-  const list = toastBacklog.splice(0);
-  if (list.length === 1) { sendToast(list[0]); return; }
-  const top = list.reduce((a, b) => ((LEVEL_RANK[b.level] ?? 0) > (LEVEL_RANK[a.level] ?? 0) ? b : a));
-  sendToast({ text: `알림 ${list.length}건 — 마지막: ${list[list.length - 1].text}`, level: top.level === 'action' ? 'action' : 'warn',
-    by: '위젯 (게임 창이 안 보이는 동안 모은 것)', detail: list.map((m) => `· ${m.text}`).join('\n') });
-}
-
-function placeToast() {
-  if (!toastWin || toastWin.isDestroyed()) return;
-  const g = gameRectDip();
-  const w = Math.round(TOAST_WIDTH * zoom);
-  const h = Math.max(20, Math.round(toastHeight * zoom));
-  let x; let y;
-  if (g) {
-    x = Math.round(g.x + (g.width - w) / 2);
-    const margin = Math.round(g.height * 0.07);
-    if (cfg.toast.pos === 'bottom') y = g.y + g.height - h - Math.round(g.height * 0.16);
-    else if (cfg.toast.pos === 'center') y = Math.round(g.y + (g.height - h) / 2);
-    else y = g.y + margin;
-  } else {
-    const a = screen.getPrimaryDisplay().workArea;
-    x = Math.round(a.x + (a.width - w) / 2);
-    y = a.y + 40;
-  }
-  toastWin.setBounds({ x, y, width: w, height: h });
-  // in/out by opacity, not show/hide (no Windows open animation; the toasts fade themselves)
-  const visible = !toastEmpty && (gameVisible() || SHOT);
-  if (visible && !toastWin.isVisible()) toastWin.showInactive();
-  toastWin.setOpacity(visible ? 1 : 0);
-  if (visible) { toastWin.setAlwaysOnTop(true, 'screen-saver'); toastWin.moveTop(); }
-  // invisible = never in the way, even if the last toast went away under the mouse (its 'hover' on)
-  else toastWin.setIgnoreMouseEvents(true, { forward: true });
-}
-
-function createToastWindow() {
-  toastWin = new BrowserWindow({
-    width: TOAST_WIDTH, height: toastHeight, show: false, frame: false, transparent: true,
-    backgroundColor: '#00000000', hasShadow: false, resizable: false,
-    focusable: false,             // never take focus from the game (the user's fixed rule)
-    skipTaskbar: true, alwaysOnTop: true, title: '주간 납품 알림',
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
-  });
-  toastWin.setAlwaysOnTop(true, 'screen-saver');
-  toastWin.setIgnoreMouseEvents(true, { forward: true });
-  toastWin.loadFile(path.join(__dirname, 'toast.html'));
-  toastWin.webContents.on('did-finish-load', () => {
-    toastWin.webContents.setZoomFactor(zoom);
-    toastWin.setOpacity(0);            // shown once, invisible until a toast arrives (no open animation later)
-    toastWin.showInactive();
-    toastWin.webContents.send('feed', { type: 'toast-pos', pos: cfg.toast.pos });
-    toastReady = true;
-    for (const m of toastEarly.splice(0)) sendToast(m);
-  });
-}
-
-ipcMain.on('toastui', (_e, action, arg) => {
-  if (!toastWin || toastWin.isDestroyed()) return;
-  if (action === 'hover') toastWin.setIgnoreMouseEvents(!arg, { forward: true });
-  else if (action === 'height') {
-    const h = Math.max(20, Number(arg) || 0);
-    if (h !== toastHeight) { toastHeight = h; placeToast(); }
-  } else if (action === 'empty') {
-    toastEmpty = !!arg;
-    placeToast();
-  }
-});
 
 // ----------------------------------------------------------------- tooltips
 // One tooltip for every badge, drawn by tip.html in its own click-through window
@@ -318,13 +235,6 @@ ipcMain.on('tipui', (_e, action, arg) => {
     placeTip();
   }
 });
-
-function setToast(patch) {
-  saveCfg({ toast: { ...cfg.toast, ...patch } });
-  if (toastWin && !toastWin.isDestroyed()) toastWin.webContents.send('feed', { type: 'toast-pos', pos: cfg.toast.pos });
-  if (!cfg.toast.on && toastWin && !toastWin.isDestroyed()) toastWin.webContents.send('feed', { type: 'toast-clear' });
-  placeToast();
-}
 
 // ------------------------------------------------------------------ placing
 
@@ -440,7 +350,7 @@ function place() {
     y = Math.max(a.y, Math.min(b.y, a.y + a.height - Math.min(h, a.height)));
     win.setBounds({ x, y, width: w, height: h });
     updateVisibility();
-    placeToast();
+    if (toast) toast.place();
     return;
   }
   if (g) {
@@ -460,10 +370,8 @@ function place() {
   updateVisibility();
   // where this overlay is, for the other overlays' docking (dock.js registry)
   if (dock) dock.publish(win.isVisible() ? win.getBounds() : null);
-  for (const w2 of [toastWin, tipWin]) {
-    if (w2 && !w2.isDestroyed() && Math.abs(w2.webContents.getZoomFactor() - zoom) > 0.01) w2.webContents.setZoomFactor(zoom);
-  }
-  placeToast();
+  if (tipWin && !tipWin.isDestroyed() && Math.abs(tipWin.webContents.getZoomFactor() - zoom) > 0.01) tipWin.webContents.setZoomFactor(zoom);
+  if (toast) toast.place();             // follows the game window and the zoom
 }
 
 function updateVisibility() {
@@ -522,7 +430,7 @@ function startFeed() {
         checkMode();
         place();
         pushProblems();
-        if (!wasVisible && gameVisible()) flushBacklog();
+        if (!wasVisible && gameVisible() && toast) toast.flush();
         continue;
       }
       if (obj.type === 'notify') {          // widget.py notify -> the toast window
@@ -631,7 +539,7 @@ function takeShots() {
     notify({ text: '⚠ 갱신 멈춤 (2분 전이 마지막)', level: 'warn', by: '위젯' });
     notify({ text: 'AI 에이전트 연속 실행 확인 창 — 게임에서 버튼을 눌러 주세요', level: 'action', by: '에이전트' });
     await new Promise((r) => setTimeout(r, 900));
-    const ti = await toastWin.webContents.capturePage();
+    const ti = await toast.window().webContents.capturePage();
     fs.writeFileSync(SHOT.replace(/\.png$/, '-toast.png'), ti.toPNG());
     // tooltips: the wings badge (expanded) and a town badge
     for (const [name, sel] of [['tip-wings', '#chips-status .tipm'], ['tip-town', '#chips-towns .tipm']]) {
@@ -685,16 +593,7 @@ function menuItems() {
     type: 'segment', id: 'wings', label: '날개 하루', tip: '정령의 날개 일별 증감의 하루 경계 — 게임 일일 초기화 시각 (미정 = 자정)',
     options: [[null, '미정'], ['05:00', '5시'], ['06:00', '6시'], ['07:00', '7시'], ['09:00', '9시']].map(([id, l]) => ({ id: id || '', label: l, on: (sync.wingsReset || null) === id })),
   });
-  items.push({ type: 'toggle', id: 'toast', label: '알림 (토스트)', on: cfg.toast.on, tip: '게임 창 위에 뜨는 알림 켜기·끄기' });
-  items.push({
-    type: 'segment', id: 'toast-pos', label: '알림 위치', disabled: !cfg.toast.on,
-    options: [['top', '위'], ['center', '가운데'], ['bottom', '아래']].map(([id, l]) => ({ id, label: l, on: cfg.toast.pos === id })),
-  });
-  items.push({
-    type: 'segment', id: 'toast-min', label: '알림 등급', tip: '모두 · 주의 이상 · 행동이 필요할 때만',
-    options: [['info', '모두'], ['warn', '주의'], ['action', '행동']].map(([id, l]) => ({ id, label: l, on: cfg.toast.min === id })),
-  });
-  items.push({ type: 'item', id: 'toast-test', label: '시험 알림 띄우기', disabled: !cfg.toast.on });
+  items.push(...(toast ? toast.menuItems() : []));      // 알림 · 알림 위치 · 알림 등급 · 시험 알림
   items.push({
     type: 'segment', id: 'font', label: '글자', tip: '오버레이·툴팁·메뉴·알림·업데이트 창·이용 안내의 글자 크기 (게임 창 크기에 맞춘 배율 위에)',
     options: [['small', '작게'], ['mid', '중간'], ['large', '크게']].map(([id, label]) => ({ id, label, on: cfg.font === id })),
@@ -724,10 +623,7 @@ function menuAct(id, opt) {
       toFeed({ cmd: 'wings_reset', value: opt || null });
       toFeed({ cmd: 'refresh' });
       return true;
-    case 'toast': setToast({ on: !cfg.toast.on }); return true;
-    case 'toast-pos': setToast({ pos: opt }); return true;
-    case 'toast-min': setToast({ min: opt }); return true;
-    case 'toast-test': notify({ text: '시험 알림 — 여기에 뜹니다', level: 'info', by: '☰ 메뉴' }); return false;
+    case 'toast': case 'toast-pos': case 'toast-min': case 'toast-test': return toast ? toast.menuAct(id, opt) : false;
     case 'font': if (FONT_SCALE[opt]) { saveCfg({ font: opt }); place(); } return false;   // the menu itself changes size
     case 'opacity': setOpacity(Number(opt)); return true;
     case 'notice': consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: 'view', zoom }); return false;
@@ -917,7 +813,11 @@ if (!app.requestSingleInstanceLock()) {
     createTray();
     createWindow();
     starting = false;                  // from here, closing the last window quits
-    createToastWindow();
+    toast = toastLib.create({
+      dir: __dirname, title: '주간 납품 알림', source: '위젯',
+      settings: () => cfg.toast, save: (p) => saveCfg({ toast: { ...cfg.toast, ...p } }),
+      gameRect: gameRectDip, gameVisible, zoom: () => zoom, always: !!SHOT,
+    });
     createTipWindow();
     dock = dockLib.create({
       win, name: 'scroll-widget', title: '주간 납품 위젯',
@@ -958,15 +858,6 @@ if (!app.requestSingleInstanceLock()) {
         placeTip();
       }
     }, 100);
-    setInterval(() => {               // same safety net for the toast window's close button
-      if (!toastWin || toastWin.isDestroyed() || !toastWin.isVisible()) return;
-      const p = screen.getCursorScreenPoint();
-      const b = toastWin.getBounds();
-      if (p.x < b.x || p.y < b.y || p.x >= b.x + b.width || p.y >= b.y + b.height) {
-        toastWin.setIgnoreMouseEvents(true, { forward: true });
-        toastWin.webContents.send('feed', { type: 'hover-reset' });
-      }
-    }, 400);
   });
   app.on('before-quit', () => {
     quitting = true;
