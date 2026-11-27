@@ -36,6 +36,32 @@ body { font: 700 12px/1.35 "Malgun Gothic", "Segoe UI", system-ui, sans-serif; c
 .seg span.on { background: #17a88a; color: #fff; }
 .row.seg-row { cursor: default; }
 .row.seg-row:hover { background: none; }
+/* the title's state on the right: a dot (ok / bad / idle) and how long ago */
+.title .value { color: #9aa0ad; }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; background: #4fd68f; }
+.dot.bad { background: #ff6b5e; }
+.dot.idle { background: #6b717d; }
+/* pictures instead of words: where the toast goes (a small screen), the three text sizes */
+.seg span.pos { width: 24px; padding: 0; position: relative; }
+.seg span.pos::before { content: ''; position: absolute; left: 4px; right: 4px; top: 2px; bottom: 2px; border: 1px solid currentColor; border-radius: 2px; opacity: .45; }
+.seg span.pos i { position: absolute; left: 6px; right: 6px; height: 3px; border-radius: 1px; background: currentColor; }
+.seg span.pos.top i { top: 4px; }
+.seg span.pos.center i { top: 8px; }
+.seg span.pos.bottom i { top: 12px; }
+.seg span.fs1 { font-size: 9.5px; }
+.seg span.fs2 { font-size: 11px; }
+.seg span.fs3 { font-size: 13px; }
+/* one line with its own buttons (업데이트: state · check now · auto switch) */
+.row.still { cursor: default; }
+.row.still:hover { background: none; }
+.icon-btn {
+  flex: none; width: 20px; height: 18px; border-radius: 5px; display: flex; align-items: center; justify-content: center;
+  color: #cfd3da; font-size: 12px; border: 1px solid rgba(255,255,255,.16); cursor: pointer;
+}
+.icon-btn:hover { background: rgba(255,255,255,.12); }
+.icon-btn.disabled { opacity: .45; cursor: default; }
+.mini-sw { flex: none; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.mini { font-size: 10.5px; color: #9aa0ad; font-weight: 400; }
 #hint {
   min-height: 16px; margin: 3px 4px 1px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,.08);
   font-weight: 400; font-size: 10.5px; color: #8a909c; white-space: normal;

@@ -163,26 +163,36 @@ function create(o) {
   }
 
   // the ☰ lines (the same in both programs) and their actions (-> keep the menu open?)
+  // 알림 = off or where, in one line (small screen pictures; the tray's menu keeps the words).
+  // 등급 and 시험 come apart (moreItems) - rarely used, the program puts them low in its menu.
   function menuItems() {
     const s = settings();
     return [
-      { type: 'toggle', id: 'toast', label: '알림 (토스트)', on: s.on },
-      { type: 'segment', id: 'toast-pos', label: '알림 위치', disabled: !s.on,
-        options: [['top', '위'], ['center', '가운데'], ['bottom', '아래']].map(([id, l]) => ({ id, label: l, on: s.pos === id })) },
-      { type: 'segment', id: 'toast-min', label: '알림 등급',
+      { type: 'segment', id: 'toast-pos', label: '알림', tip: '게임 창 위에 뜨는 알림 — 끔 · 위 · 가운데 · 아래',
+        options: [{ id: 'off', label: '끔', on: !s.on },
+          ...[['top', '위'], ['center', '가운데'], ['bottom', '아래']].map(([id, l]) => ({ id, label: l, glyph: id, on: s.on && s.pos === id }))] },
+    ];
+  }
+  function moreItems() {
+    const s = settings();
+    return [
+      { type: 'segment', id: 'toast-min', label: '알림 등급', tip: '모두 · 주의 이상 · 행동이 필요한 것만',
         options: [['info', '모두'], ['warn', '주의'], ['action', '행동']].map(([id, l]) => ({ id, label: l, on: s.min === id })) },
-      { type: 'item', id: 'toast-test', label: '시험 알림 띄우기', disabled: !s.on },
+      { type: 'item', id: 'toast-test', label: '시험 알림', disabled: !s.on },
     ];
   }
   function menuAct(id, opt) {
-    if (id === 'toast') { set({ on: !settings().on }); return true; }
-    if (id === 'toast-pos') { if (POSITIONS.includes(opt)) set({ pos: opt }); return true; }
+    if (id === 'toast-pos') {
+      if (opt === 'off') set({ on: false });
+      else if (POSITIONS.includes(opt)) set({ on: true, pos: opt });
+      return true;
+    }
     if (id === 'toast-min') { if (opt in LEVEL_RANK) set({ min: opt }); return true; }
     if (id === 'toast-test') { notify({ text: '시험 알림 — 여기에 뜹니다', level: 'info', by: '☰ 메뉴' }); return false; }
     return false;
   }
 
-  return { notify, flush, place, menuItems, menuAct, window: () => win };
+  return { notify, flush, place, menuItems, moreItems, menuAct, window: () => win };
 }
 
 module.exports = { create, DEFAULTS };

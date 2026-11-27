@@ -628,29 +628,24 @@ function toFeed(obj) {
 // with the game, a click outside only closes it) and the tray's native one (ctxmenu.toNative).
 // Least text: states as grey values on the right, choices as one-line segments, explanations
 // in the hint line at the bottom.
+// The menu diet (user 2026-11-27): the state is one title line ("● 20초 전"), the character one
+// line, choices are pictures where they can be, the update is one line.
 function menuItems() {
   const items = [];
-  for (const p of problems()) items.push({ type: 'info', label: `⚠ ${p}`, warn: true });
-  const label = { ok: '연결됨', retry: '재시도 중', offline: '게임 연결 끊김', loading: '읽는 중' }[sync.status] || sync.status;
-  items.push({ type: 'title', label: '주간 납품', value: sync.week ? `${sync.week} 주` : '' });
-  items.push({ type: 'info', label: sync.feedDead ? '⚠ 피드 재시작 중' : `${sync.status === 'ok' ? '●' : '○'} ${label}`, value: sync.t ? `${ago(sync.t)} 전 갱신` : '' });
-  if (sync.char) items.push({ type: 'info', label: '캐릭터', value: `${sync.char.name} · ${sync.char.job || '?'} · 가방 ${sync.char.weight}` });
-  if (game.found) {
-    const [, , w, h] = game.rect || [0, 0, 0, 0];
-    items.push({ type: 'info', label: '게임 창', value: `${w}×${h} · ${game.minimized ? '최소화' : game.front === 'game' ? '앞' : '뒤'}` });
-  } else {
-    items.push({ type: 'info', label: '게임 창', value: appMode ? '없음 → 창 모드' : '찾는 중' });
-  }
-  if (sync.recordAt) items.push({ type: 'info', label: '기록 저장', value: `${sync.recordAt.slice(5, 16)}${sync.recordBy ? ` (${sync.recordBy})` : ''}` });
-  items.push({ type: 'sep' });
-  items.push(...(uui ? uui.menuItems() : []));
-  items.push({ type: 'sep' });
+  const probs = problems();
+  for (const p of probs) items.push({ type: 'info', label: `⚠ ${p}`, warn: true });
+  const ok = sync.status === 'ok' && !sync.feedDead;
+  const value = ok ? (sync.t ? `${ago(sync.t)} 전` : '')
+    : sync.feedDead ? '피드 재시작 중' : { retry: '재시도 중', offline: '연결 끊김', loading: '읽는 중' }[sync.status] || sync.status;
+  items.push({
+    type: 'title', label: `주간 납품${sync.week ? ` · ${String(sync.week).replace(/^\d{4}-/, '')} 주` : ''}`, value,
+    dot: ok ? (probs.length ? 'bad' : 'ok') : sync.status === 'loading' ? 'idle' : 'bad',
+    tip: sync.recordAt ? `기록 저장 ${sync.recordAt.slice(5, 16)}${sync.recordBy ? ` (${sync.recordBy})` : ''}` : '',
+  });
+  if (sync.char) items.push({ type: 'info', label: `${sync.char.name} · ${sync.char.job || '?'} · 가방 ${sync.char.weight}` });
   items.push({ type: 'item', id: 'refresh', label: '지금 새로고침' });
-  items.push({ type: 'item', id: 'recipes', label: '레시피 다시 읽기', tip: '보통 30분마다 읽습니다' });
-  items.push({ type: 'sep' });
   if (appMode) items.push({ type: 'item', id: 'minimize', label: '창 최소화' });
-  items.push({ type: 'item', id: 'reset-pos', label: '위치 초기화', tip: '옮기려면 ☰를 끕니다' });
-  items.push({ type: 'segment', id: 'align', label: '정렬', options: [['left', '왼쪽'], ['right', '오른쪽']].map(([id, l]) => ({ id, label: l, on: cfg.align === id })) });
+  items.push({ type: 'sep' });
   items.push({
     type: 'segment', id: 'show', label: '표시', tip: '숨기면 트레이 아이콘으로 다시 표시합니다',
     options: [['always', '항상'], ['game', '게임 앞'], ['hidden', '숨김']].map(([id, l]) => ({ id, label: l, on: cfg.show === id })),
@@ -659,17 +654,22 @@ function menuItems() {
     type: 'segment', id: 'wings', label: '날개 하루', tip: '날개 증감의 하루 경계 (게임 일일 초기화 시각)',
     options: [[null, '미정'], ['05:00', '5시'], ['06:00', '6시'], ['07:00', '7시'], ['09:00', '9시']].map(([id, l]) => ({ id: id || '', label: l, on: (sync.wingsReset || null) === id })),
   });
-  items.push(...(toast ? toast.menuItems() : []));      // 알림 · 알림 위치 · 알림 등급 · 시험 알림
+  items.push(...(toast ? toast.menuItems() : []));      // 알림 [끔 | where]
   items.push({
     type: 'segment', id: 'font', label: '글자',
-    options: [['small', '작게'], ['mid', '중간'], ['large', '크게']].map(([id, label]) => ({ id, label, on: cfg.font === id })),
+    options: [['small', '작게', 'fs1'], ['mid', '중간', 'fs2'], ['large', '크게', 'fs3']].map(([id, label, cls]) => ({ id, label, face: '가', cls, on: cfg.font === id })),
   });
   items.push({
     type: 'segment', id: 'opacity', label: '투명도',
     options: [1, 0.9, 0.8, 0.7, 0.6].map((o) => ({ id: String(o), label: String(Math.round(o * 100)), on: Math.abs((cfg.opacity || 1) - o) < 0.01 })),
   });
   items.push({ type: 'sep' });
+  items.push(...(uui ? uui.menuItems() : []));
+  // rarely used: plain lines until the user settles how the bottom row looks
   items.push({ type: 'item', id: 'notice', label: '이용 안내 보기' });
+  items.push({ type: 'item', id: 'reset-pos', label: '위치 초기화', tip: '옮기려면 ☰를 끕니다' });
+  items.push(...(toast ? toast.moreItems() : []));      // 알림 등급 · 시험 알림
+  items.push({ type: 'item', id: 'recipes', label: '레시피 다시 읽기', tip: '보통 30분마다 읽습니다' });
   items.push({ type: 'item', id: 'quit', label: '종료' });
   return items;
 }
@@ -682,14 +682,13 @@ function menuAct(id, opt) {
     case 'recipes': toFeed({ cmd: 'recipes' }); return false;
     case 'minimize': if (win) win.minimize(); return false;
     case 'reset-pos': saveCfg({ ...POS[cfg.align] }); place(); return false;
-    case 'align': setAlign(opt); return true;
     case 'show': setShow(opt); return opt !== 'hidden';
     case 'wings':
       sync.wingsReset = opt || null;
       toFeed({ cmd: 'wings_reset', value: opt || null });
       toFeed({ cmd: 'refresh' });
       return true;
-    case 'toast': case 'toast-pos': case 'toast-min': case 'toast-test': return toast ? toast.menuAct(id, opt) : false;
+    case 'toast-pos': case 'toast-min': case 'toast-test': return toast ? toast.menuAct(id, opt) : false;
     case 'font': if (FONT_SCALE[opt]) { saveCfg({ font: opt }); place(); } return false;   // the menu itself changes size
     case 'opacity': setOpacity(Number(opt)); return true;
     case 'notice': consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: 'view', zoom }); return false;
@@ -715,12 +714,6 @@ function popupMenu() {
     anchor: { x: p.x, y: p.y + 6, right: cfg.align === 'right', top: p.y - 6 }, zoom, build: menuItems, act: menuAct,
     onClose: () => toPage({ type: 'menu', open: false }),
   });
-}
-
-function setAlign(a) {
-  saveCfg({ align: a, ...POS[a] });
-  toPage(windowState());
-  place();
 }
 
 function setShow(v) {

@@ -243,51 +243,30 @@ function create(o) {
   }
   const hasPrevious = () => { try { return fs.existsSync(path.join(o.previousDir(), 'package.json')); } catch { return false; } };
 
-  // ---------------------------------------------------------------- ☰ menu lines
-  function menuLines() {
-    const i = st.info;
-    const c = cfg();
-    const out = [];
-    if (i && i.available) {
-      const declined = i.notice && c.noticeDeclined === i.notice.version;
-      const label = declined ? `⬆ 새 버전 ${i.version} — 이용 안내 동의 필요 (다시 보기)`
-        : c.skipVersion === i.version ? `⬆ 건너뛴 새 버전 ${i.version} — 보기` : `⬆ 새 버전 ${i.version} — 업데이트`;
-      out.push({ label, click: show });
-    }
-    const when = st.at ? `${Math.max(0, Math.round((Date.now() - st.at) / 60000))}분 전 확인` : '확인 전';
-    const state = st.error ? `업데이트 확인 실패 — ${st.error}` : i && i.none ? `업데이트: 아직 릴리스 없음 · ${when}`
-      : i && !i.available ? `업데이트: 최신 (${o.version}) · ${when}` : `현재 ${o.version} · ${when}`;
-    out.push({ label: state, enabled: false });
-    out.push({ label: st.checking ? '확인 중...' : '업데이트 확인', enabled: !st.checking, click: () => check({ manual: true }) });
-    out.push({
-      label: '자동 업데이트 확인 (켤 때·6시간마다)', type: 'checkbox', checked: c.autoCheck !== false,
-      click: (mi) => { o.saveCfg({ autoCheck: mi.checked }); if (mi.checked) start(); },
-    });
-    return out;
-  }
-
-  // ---------------------------------------------------- the custom menu (ctxmenu.js) lines
+  // ---------------------------------------------------------------- the ☰ line
+  // One line (ctxmenu 'line'): 업데이트 · state · ↻ (check now) · 자동 switch. A newer version shows
+  // its number with a dot and the line opens the update window; a declined notice shows a warning.
   function menuItems() {
     const i = st.info;
     const c = cfg();
-    const out = [];
+    const when = st.at ? `${Math.max(0, Math.round((Date.now() - st.at) / 60000))}분 전 확인` : '확인 전';
+    const line = { type: 'line', label: '업데이트' };
     if (i && i.available) {
       const declined = i.notice && c.noticeDeclined === i.notice.version;
-      out.push({
-        type: 'item', id: 'upd-show', label: `업데이트 v${i.version}`, badge: declined ? 'warn' : 'dot',
-        value: declined ? '이용 안내 동의 필요' : c.skipVersion === i.version ? '건너뜀' : '',
-        tip: declined ? '바뀐 이용 안내에 동의하지 않아 지금 버전을 씁니다' : undefined,
+      Object.assign(line, {
+        id: 'upd-show', value: `v${i.version}`, badge: declined ? 'warn' : 'dot',
+        tip: declined ? '바뀐 이용 안내에 동의하지 않음 — 눌러서 다시 보기'
+          : c.skipVersion === i.version ? '건너뛴 새 버전 — 눌러서 보기' : '새 버전 — 눌러서 업데이트',
       });
+    } else if (st.error) {
+      Object.assign(line, { value: '확인 실패', badge: 'warn', tip: `업데이트 확인 실패: ${st.error}` });
+    } else {
+      Object.assign(line, { value: i && i.none ? '릴리스 없음' : `v${o.version}${i ? ' 최신' : ''}`, tip: when });
     }
-    const when = st.at ? `${Math.max(0, Math.round((Date.now() - st.at) / 60000))}분 전` : '';
-    const state = st.error ? '확인 실패' : i && i.none ? '릴리스 없음' : i && !i.available ? `v${o.version} 최신` : `v${o.version}`;
-    out.push({
-      type: 'item', id: 'upd-check', label: st.checking ? '확인 중...' : '업데이트 확인', disabled: st.checking,
-      value: [state, when].filter(Boolean).join(' · '),
-      tip: st.error ? `업데이트 확인 실패: ${st.error}` : undefined,
-    });
-    out.push({ type: 'toggle', id: 'upd-auto', label: '자동 업데이트 확인', on: c.autoCheck !== false, tip: '켤 때와 6시간마다 확인합니다' });
-    return out;
+    line.actions = [{ id: 'upd-check', text: st.checking ? '…' : '↻', label: st.checking ? '확인 중...' : '업데이트 확인',
+      tip: `지금 확인 · ${when}`, disabled: st.checking }];
+    line.toggle = { id: 'upd-auto', label: '자동', long: '자동 업데이트 확인', on: c.autoCheck !== false, tip: '켤 때와 6시간마다 확인' };
+    return [line];
   }
   // -> keep the menu open?
   function menuAct(id) {
@@ -348,7 +327,7 @@ function create(o) {
     }
   }
 
-  return { start, check, show, afterStart, rollback, hasPrevious, menuLines, menuItems, menuAct, pageState, demo, selfTest, state: () => st };
+  return { start, check, show, afterStart, rollback, hasPrevious, menuItems, menuAct, pageState, demo, selfTest, state: () => st };
 }
 
 module.exports = { create };

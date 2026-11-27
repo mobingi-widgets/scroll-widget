@@ -6,13 +6,16 @@
 // - The menu is its own window that never takes the keyboard (focusable: false), so the game
 //   keeps it; clicks still work.
 // - While it is up, a transparent "click catcher" covers the screen under it: the first click
-//   outside only closes the menu and reaches nothing else. The last line is "닫기".
+//   outside only closes the menu and reaches nothing else (no 닫기 line since 1.6.2 / 1.4.5).
 // - The program describes its menu as data (items); the tray's native menu is made from the
 //   same items (toNative), so there is one menu definition.
 //
-// Item: { id, type: 'info' | 'item' | 'toggle' | 'segment' | 'sep' | 'title', label, value?, badge?
-//         ('dot' | 'warn' | text), tip?, disabled?, on? (toggle), options?: [{ id, label, on }] (segment),
-//         keep? (stay open after the click) }
+// Item: { id, type: 'info' | 'item' | 'toggle' | 'segment' | 'line' | 'sep' | 'title', label, value?,
+//         dot? ('ok' | 'bad' | 'idle' - before the value), badge? ('dot' | 'warn' | text), tip?, disabled?,
+//         on? (toggle), options?: [{ id, label, on, face?, cls?, glyph?, tip? }] (segment: face = the text
+//         shown instead of the label, glyph = 'top' | 'center' | 'bottom' - a small screen picture) }
+// A 'line' has its own buttons: actions?: [{ id, text, label, tip?, disabled? }] and toggle?: { id,
+// label, long?, on, tip? }; the line itself is clickable when it has an id.
 'use strict';
 
 const { BrowserWindow, ipcMain, screen, Menu } = require('electron');
@@ -134,16 +137,22 @@ function create({ dir }) {
   return { open, close, isOpen: () => !!current, window: () => menu };
 }
 
-// The same items as a native menu (the tray): segments -> radio submenus, toggles -> checkboxes.
+// The same items as a native menu (the tray): segments -> radio submenus (by their labels, not the
+// pictures), toggles -> checkboxes, a line -> its own line plus one line per button and switch.
 function toNative(items, act) {
   const out = [];
+  const text = (it) => (it.value ? `${it.label} · ${it.value}` : it.label);
   for (const it of items) {
     if (it.type === 'sep') out.push({ type: 'separator' });
-    else if (it.type === 'info' || it.type === 'title') out.push({ label: it.value ? `${it.label} · ${it.value}` : it.label, enabled: false });
+    else if (it.type === 'info' || it.type === 'title') out.push({ label: text(it), enabled: false });
     else if (it.type === 'toggle') out.push({ label: it.label, type: 'checkbox', checked: !!it.on, enabled: !it.disabled, click: () => act(it.id) });
     else if (it.type === 'segment') {
       out.push({ label: it.label, submenu: it.options.map((o) => ({ label: o.label, type: 'radio', checked: !!o.on, click: () => act(it.id, o.id) })) });
-    } else out.push({ label: it.value ? `${it.label} · ${it.value}` : it.label, enabled: !it.disabled, click: () => act(it.id) });
+    } else if (it.type === 'line') {
+      out.push({ label: text(it), enabled: !!it.id && !it.disabled, click: () => act(it.id) });
+      for (const a of it.actions || []) out.push({ label: a.label, enabled: !a.disabled, click: () => act(a.id) });
+      if (it.toggle) out.push({ label: it.toggle.long || it.toggle.label, type: 'checkbox', checked: !!it.toggle.on, click: () => act(it.toggle.id) });
+    } else out.push({ label: text(it), enabled: !it.disabled, click: () => act(it.id) });
   }
   return Menu.buildFromTemplate(out);
 }
