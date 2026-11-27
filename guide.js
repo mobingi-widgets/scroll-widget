@@ -1,5 +1,5 @@
 // Draws dock.js's model: { w, h, zones: [{name, x, y, w, h, hit, other}], lines: [{v, at, on}],
-// box: {x, y, w, h}, label: {text, bad} } - all in DIP relative to the game window.
+// box: {x, y, w, h, anchor}, label: {text, bad} } - all in DIP relative to the game window.
 const layer = document.getElementById('layer');
 const box = document.getElementById('box');
 const label = document.getElementById('label');
@@ -27,7 +27,7 @@ window.guide.onModel((m) => {
     layer.appendChild(e);
   }
   Object.assign(box.style, { left: px(m.box.x), top: px(m.box.y), width: px(m.box.w), height: px(m.box.h) });
-  box.className = m.label.bad ? 'bad' : '';
+  box.className = [m.label.bad ? 'bad' : '', m.box.anchor || ''].filter(Boolean).join(' ');
   label.textContent = m.label.text;
   label.className = m.label.bad ? 'bad' : '';
   // under the overlay if there is room, else above it; kept inside the game window

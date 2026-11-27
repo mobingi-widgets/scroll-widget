@@ -83,16 +83,18 @@ function create({ dir }) {
     const area = screen.getDisplayNearestPoint({ x: Math.round(a.x), y: Math.round(a.y) }).workArea;
     const w = Math.round(W * zoom);
     const h = Math.min(Math.round(height * zoom), area.height - 8);
-    // under the anchor, right edges together; flipped to stay on the screen
+    // under the anchor (above it with a.up - an area whose content sits at its bottom), right
+    // edges together; flipped to stay on the screen
     let x = Math.round(a.right ? a.x - w : a.x);
-    let y = Math.round(a.y);
+    let y = Math.round(a.up ? (a.top ?? a.y) - h : a.y);
+    if (a.up && y < area.y + 4) y = Math.round(a.y);                 // no room above: below after all
     if (x < area.x + 4) x = area.x + 4;
     if (x + w > area.x + area.width - 4) x = area.x + area.width - 4 - w;
     if (y + h > area.y + area.height - 4) y = Math.max(area.y + 4, Math.round((a.top ?? a.y) - h));
     menu.setBounds({ x, y, width: w, height: h });
   }
 
-  // open({ anchor: { x, y, right?, top? } (screen DIP), build: () => items, act(id, opt) -> keep open?,
+  // open({ anchor: { x, y, right?, top?, up? } (screen DIP), build: () => items, act(id, opt) -> keep open?,
   //        zoom?, onClose? })
   function open(spec) {
     if (!menu || menu.isDestroyed()) makeWindows();
