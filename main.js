@@ -139,6 +139,8 @@ const DUMP = process.env.MOBINGI_WIDGET_DUMP;
 // made-up docs/demo-snapshot.json - no game reads, no game window, neutral backdrop (demoShots)
 const DEMO = process.env.MOBINGI_WIDGET_DEMO;
 if (DEMO) app.setPath('userData', path.join(require('os').tmpdir(), 'mobingi-scroll-widget-demo'));
+// a window Windows reports as covered stops drawing - the demo's pictures must not depend on what else is on screen
+if (DEMO) app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
 function toPage(obj) {
   if (win && !win.isDestroyed()) win.webContents.send('feed', obj);
@@ -572,8 +574,33 @@ function startFeed() {
 // real numbers identify it. The repo is public: look at every image before committing.
 async function demoShots() {
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  const save = async (w, name) => fs.writeFileSync(path.join(DEMO, `${name}.png`), (await w.webContents.capturePage()).toPNG());
+  // capturePage copies what was last drawn: wait for a drawn frame and a window that has stopped
+  // changing size (it follows the page's height a frame later) - 3 s at most
+  const frame = (w) => w.webContents.executeJavaScript(
+    'new Promise((ok) => { requestAnimationFrame(() => requestAnimationFrame(() => ok(true))); setTimeout(() => ok(false), 1000); })').catch(() => false);
+  const settled = async (w) => {
+    for (const t0 = Date.now(); Date.now() - t0 < 3000;) {
+      const before = JSON.stringify(w.getBounds());
+      const drew = await frame(w);
+      await wait(100);
+      if (drew && JSON.stringify(w.getBounds()) === before) return true;
+    }
+    return false;
+  };
+  const save = async (w, name) => {
+    if (!await settled(w)) console.warn(`demo: ${name} - not drawn or still resizing after 3 s`);
+    fs.writeFileSync(path.join(DEMO, `${name}.png`), (await w.webContents.capturePage()).toPNG());
+  };
+  // the real pointer may rest where the menu opens: its hover and hint line are not part of the picture
+  const unhover = async (w) => {
+    await w.webContents.insertCSS('* { pointer-events: none !important; }');
+    w.webContents.sendInputEvent({ type: 'mouseMove', x: 1, y: 1 });
+    await w.webContents.executeJavaScript("hoverKey = null; document.getElementById('hint').textContent = '';").catch(() => {});
+  };
   const js = (code) => win.webContents.executeJavaScript(code);
+  // start once the page has loaded (its feed handler listens): a message sent before that is lost
+  if (win.webContents.isLoading()) await new Promise((r) => win.webContents.once('did-finish-load', r));
+  const hasSnap = () => js("typeof snap !== 'undefined' && !!snap").catch(() => false);
   fs.mkdirSync(DEMO, { recursive: true });
   const fixture = process.env.MOBINGI_WIDGET_FIXTURE || path.join(__dirname, 'docs', 'demo-snapshot.json');
   const snap = JSON.parse(fs.readFileSync(fixture, 'utf8'));
@@ -584,6 +611,8 @@ async function demoShots() {
   toPage({ type: 'mode', app: false });
   toPage(snap);
   await wait(1200);
+  for (let i = 0; i < 3 && !await hasSnap(); i++) { toPage(snap); await wait(500); }
+  if (!await hasSnap()) console.warn('demo: the page never got the snapshot');
   await js("window.__marks && window.__marks([['#toggle', 1, 'top'], ['#charpill', 2, 'top'], ['#menu', 3, 'top'], ['#title', 4], ['#chips-status', 5], ['#chips-towns', 6], ['#chips-skills', 7]])");
   await wait(400);
   await save(win, 'band');
@@ -620,6 +649,7 @@ async function demoShots() {
   Object.assign(uui.state(), { info: { available: false }, at: Date.now() - 12 * 60000, error: '' });
   popupMenu();
   await wait(1200);
+  await unhover(ctx.window());
   await save(ctx.window(), 'menu');
   ctx.close();
   process.env.NOTICE_SHOT = path.join(DEMO, 'notice.png');

@@ -27,6 +27,22 @@ function noticeVersion(dir) {
   } catch { return 0; }
 }
 
+// NOTICE_SHOT waits for the buttons: notice.js (end of the body) makes them, and ready-to-show can
+// come before it has run - those pictures had no buttons (2026-11-27). Then two frames, so what is
+// captured is what was drawn; 3 s at most, a page that never gets there is still captured.
+// The real pointer may rest where the notice opens: no hover in the picture.
+async function drawn(win) {
+  await win.webContents.insertCSS('* { pointer-events: none !important; }').catch(() => {});
+  win.webContents.sendInputEvent({ type: 'mouseMove', x: 1, y: 1 });
+  return win.webContents.executeJavaScript(`new Promise((ok) => {
+    const t0 = Date.now();
+    const frames = () => requestAnimationFrame(() => requestAnimationFrame(() => ok(true)));
+    const look = () => (document.querySelector('#buttons button') || Date.now() - t0 > 3000 ? frames() : setTimeout(look, 30));
+    look();
+    setTimeout(() => ok(false), 3500);
+  })`).catch(() => false);
+}
+
 // -> Promise<true | false | 'rollback'>. mode: ask | guard | update | view (see notice.js).
 // dir: the folder holding notice.html (+ notice.css, notice.js) - a downloaded notice too.
 // onShown: called once the notice is on screen. The start guard marks the update healthy
@@ -69,6 +85,7 @@ function ask({ dir, title, mode = 'ask', iconDir, onShown, zoom = 1 }) {
     win.showInactive();                        // never takes the keyboard from the game by itself
     if (onShown) { try { onShown(); } catch { /* the notice still works */ } }
     if (process.env.NOTICE_SHOT) {
+      await drawn(win);
       const img = await win.webContents.capturePage();
       fs.writeFileSync(process.env.NOTICE_SHOT, img.toPNG());
       finish(false);
