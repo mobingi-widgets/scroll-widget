@@ -1,3 +1,8 @@
+# Every text file is LF in the repository and in every working tree (2026-11-27): trees are
+# byte-identical whoever checks them out, so builds and file hashes agree. Binaries are detected
+# and left alone.
+* text=auto eol=lf
 # cmd and Windows PowerShell 5.1 read these files: keep CRLF (and they stay ASCII)
 *.bat text eol=crlf
+*.cmd text eol=crlf
 *.ps1 text eol=crlf
