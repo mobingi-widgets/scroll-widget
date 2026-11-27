@@ -354,24 +354,31 @@ sizer.addEventListener('pointerdown', (e) => {
   if (e.button !== 0 || blocked()) return;
   e.preventDefault();
   try { e.target.setPointerCapture(e.pointerId); } catch { /* not capturable */ }   // the .grab; events bubble here
-  const top = $('root').getBoundingClientRect().top;
-  const at = (ev) => Math.max(120, Math.round(ev.clientY - top + 4));
-  sizing = at(e);
+  // from the overlay's height now, by the cursor's way from the press (until 1.6.1 / 1.4.3 the
+  // limit jumped to the cursor itself: a press without moving cut the overlay up to 9 px and
+  // turned "no limit" into a limit). Not moved = a click: nothing changes, nothing is saved.
+  const base = $('root').getBoundingClientRect().height;
+  const y0 = e.clientY;
+  let moved = false;
+  const at = (ev) => Math.max(120, Math.round(base + ev.clientY - y0));
+  sizing = Math.round(base);
   tipFor(null);
   document.body.classList.add('sizing');
   window.widget.ui('sizing', true);
   fitTab();
-  const move = (ev) => { sizing = at(ev); fitTab(); };
+  const move = (ev) => { if (Math.abs(ev.clientY - y0) >= 2) moved = true; if (moved) { sizing = at(ev); fitTab(); } };
   const done = () => {
     sizer.removeEventListener('pointermove', move);
     sizer.removeEventListener('pointerup', done);
     sizer.removeEventListener('pointercancel', done);
     const v = sizing;
-    room = room ? { ...room, max: v, h: room.game ? Math.min(v, room.game) : v } : { h: v, game: null, max: v };
     sizing = null;
     document.body.classList.remove('sizing');
     window.widget.ui('sizing', false);
-    window.widget.ui('maxh', v);
+    if (moved) {
+      room = room ? { ...room, max: v, h: room.game ? Math.min(v, room.game) : v } : { h: v, game: null, max: v };
+      window.widget.ui('maxh', v);
+    }
     fitTab();
   };
   sizer.addEventListener('pointermove', move);
