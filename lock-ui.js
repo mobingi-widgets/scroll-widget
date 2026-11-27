@@ -2,13 +2,48 @@
 // rectangles (the selector in this script tag's data-bound; hitrects.js does the watching) and,
 // from lock.js's 'lock' messages, dims the list and shows the 🔒 over it:
 //   big   - centred on the list, with how to unlock; wiggles with each shake swing
-//   small - a small 🔒 in the list's top corner (data side) - the list stays readable
+//   small - a small 🔒 on the ☰ (data-small; it cannot be clicked while locked anyway), else in
+//           the list's top corner - the list stays readable
 //   🔓    - the moment it unlocks
 // The hint never takes the mouse (the window passes it through while locked anyway).
+// The switch (user 2026-11-27): a padlock button put first in the header (data-button) - a line
+// drawing, not the 🔒 emoji (on a post line that means "암호 있음"): dim and open = off, bright
+// and closed = on. Fixed size (글자 % leaves it; 배율 scales it with the rest). Locked, it passes
+// the mouse like everything else: shake to unlock, then click it.
 (function () {
   const api = window.mangho || window.widget;
   const tag = document.currentScript;
   const sel = (tag && tag.dataset.bound) || '#root';
+  const smallOn = (tag && tag.dataset.small) || '';
+
+  const head = tag && tag.dataset.button && document.querySelector(tag.dataset.button);
+  const btn = head ? document.createElement('span') : null;
+  if (btn) {
+    btn.id = 'lockbtn';
+    btn.className = 'pill lockbtn hit tipm';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 16 16');
+    svg.setAttribute('aria-hidden', 'true');
+    for (const [cls, d] of [['body', 'M3.6 7.4h8.8v6.4H3.6z'], ['shut', 'M5.4 7.4V5.2a2.6 2.6 0 0 1 5.2 0v2.2'], ['open', 'M5.4 7.4V4.4a2.6 2.6 0 0 1 5.2 0v.6']]) {
+      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('class', cls);
+      p.setAttribute('d', d);
+      svg.appendChild(p);
+    }
+    btn.appendChild(svg);
+    head.prepend(btn);
+    btn.addEventListener('click', () => api.ui('lock-toggle'));
+  }
+  function drawButton(on) {
+    if (!btn) return;
+    btn.classList.toggle('on', on);
+    btn.tipModel = {
+      title: '자동 잠금', sub: on ? '켬' : '끔',
+      lines: ['목록 밖으로 나가고 3초 뒤 흐려집니다', '흐린 동안 마우스가 통과합니다', '목록 위에서 마우스를 흔들면 풀립니다'],
+      note: '클릭: 켜기 · 끄기',
+    };
+  }
+  drawButton(false);
   let fresh = true;
   window.watchHitRects(sel, (rects) => {
     api.ui('lock-bound', { rects, fresh });
@@ -45,13 +80,21 @@
     if (el.hidden) return;
     const bx = box();
     if (!bx) return;
+    const on = smallOn && document.querySelector(smallOn);
+    const at = on && on.getBoundingClientRect();
+    const cover = el.classList.contains('small') && at && at.width >= 1;
+    el.style.width = cover ? `${at.width}px` : '';            // the small 🔒 covers the ☰ exactly
+    el.style.height = cover ? `${at.height}px` : '';
     const w = el.offsetWidth;
     const h = el.offsetHeight;
     const vw = document.documentElement.clientWidth;
     const vh = document.documentElement.clientHeight;
     let x;
     let y;
-    if (el.classList.contains('small')) {
+    if (cover) {
+      x = at.left;
+      y = at.top;
+    } else if (el.classList.contains('small')) {
       x = st.side === 'left' ? bx.l + 4 : bx.r - w - 4;
       y = bx.t + 4;
     } else {
@@ -65,6 +108,7 @@
   function show(d) {
     const was = st;
     st = d;
+    drawButton(!!d.on);
     const locked = d.state !== 'open';
     document.body.classList.toggle('locked', locked);
     document.body.style.setProperty('--lock-dim', String(locked ? d.dim : 1));

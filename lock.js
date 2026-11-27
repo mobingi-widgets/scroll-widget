@@ -7,7 +7,8 @@
 // While locked, the pointer resting on the list for 0.3 s shows a big 🔒 with how to unlock;
 // after 2 s without shaking it shrinks to a small 🔒 in a corner, so the list stays readable. The
 // big one is drawn with the window at full opacity (the list itself dimmed in the page) so it
-// reads at any 투명도. The page side is lock-ui.js + lock.css.
+// reads at any 투명도. The page side is lock-ui.js + lock.css, with the switch: a padlock button at
+// the start of the header (dim and open = off, bright and closed = on).
 //
 // Everything runs off hitpoll.js's 30 ms poll (sample): the same cursor position that decides
 // click-through, so it works while the game (run as administrator) is in front.
@@ -103,7 +104,7 @@ function create(o) {
     const bright = state === 'unlocking' || (state === 'locked' && hint === 'big');
     const winOp = plain ? null : bright ? 1 : op;
     const dim = plain ? 1 : state === 'locked' ? (op * DIM) / winOp : state === 'unlocking' ? op / winOp : 1;
-    const msg = { type: 'lock', state, hint, wiggle, dim: Math.round(dim * 1000) / 1000, side: o.side() };
+    const msg = { type: 'lock', on: !!o.enabled(), state, hint, wiggle, dim: Math.round(dim * 1000) / 1000, side: o.side() };
     const key = JSON.stringify([winOp, msg]);
     if (key === sent) return;
     sent = key;
@@ -162,41 +163,37 @@ function create(o) {
     bound = Array.isArray(list) ? list.filter((r) => Array.isArray(r) && r.length === 4 && r.every(Number.isFinite)) : [];
     if (fresh) sent = '';
   }
+  // the switch is the 🔒 button at the start of the header (lock-ui.js; user 2026-11-27 - one switch,
+  // one place): it can only be clicked while unlocked, so a click turns 잠금 on, or off when it is on
+  function toggle() {
+    const on = !o.enabled();
+    o.save(on);
+    if (!on) unlock();
+    look();
+  }
   if (o.ipc) {
     o.ipc.on('ui', (e, action, arg) => {
-      if (action !== 'lock-bound' || !alive() || e.sender !== o.win.webContents) return;
-      setBound(arg && arg.rects, arg && arg.fresh);
+      if (!alive() || e.sender !== o.win.webContents) return;
+      if (action === 'lock-bound') setBound(arg && arg.rects, arg && arg.fresh);
+      else if (action === 'lock-toggle' && state === 'open' && !o.appMode()) toggle();
     });
   }
 
   function unlock() { if (state !== 'open') { to('open'); look(); } }
 
-  // the ☰ line (the tray's menu shows the same), and 잠금 해제 at the top of the tray's menu while
-  // locked (the ☰ cannot be clicked then)
+  // 잠금 해제 at the top of the tray's menu while locked - the way out when shaking cannot work
+  // (the game holding the cursor); the ☰ cannot be clicked then
   function topItems() {
     return state === 'open' ? [] : [{ type: 'item', id: 'lock-release', label: '잠금 해제' }, { type: 'sep' }];
   }
-  function menuItems() {
-    const on = !!o.enabled();
-    return [{
-      type: 'segment', id: 'lock', label: '잠금',
-      tip: '목록 밖으로 나가고 3초 뒤 흐려지고 마우스가 통과합니다',
-      options: [{ id: 'off', label: '끔', on: !on }, { id: 'on', label: '켬', on }],
-    }];
-  }
   // -> keep the menu open?
-  function menuAct(id, opt) {
-    if (id === 'lock-release') { unlock(); return false; }
-    if (id === 'lock' && (opt === 'on' || opt === 'off')) {
-      o.save(opt === 'on');
-      if (opt === 'off') unlock();
-      return true;
-    }
+  function menuAct(id) {
+    if (id === 'lock-release') unlock();
     return false;
   }
 
   return {
-    sample, setBound, unlock, topItems, menuItems, menuAct,
+    sample, setBound, unlock, toggle, topItems, menuAct,
     locked: () => state !== 'open',
     state: () => ({ state, hint, wiggle }),
   };

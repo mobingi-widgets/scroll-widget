@@ -1,6 +1,7 @@
-/* lock.css - 잠금 (lock.js / lock-ui.js; same file in both overlays). Locked: everything but the
-   hint dims (--lock-dim: half the 투명도, against the window's own opacity); the 🔒 hint over it. */
-body.locked > :not(#lockhint) { opacity: var(--lock-dim, .5); transition: opacity .25s; }
+/* lock.css - 잠금 (lock.js / lock-ui.js; same file in both overlays). Locked: the list (#root) dims
+   (--lock-dim: half the 투명도, against the window's own opacity); the 🔒 hint over it. (Not the
+   area's outline: it has its own opacity, 0 until shown.) */
+body.locked #root { opacity: var(--lock-dim, .5); transition: opacity .25s; }
 
 #lockhint {
   position: fixed; z-index: 1000; pointer-events: none;
@@ -12,9 +13,24 @@ body.locked > :not(#lockhint) { opacity: var(--lock-dim, .5); transition: opacit
 #lockhint[hidden] { display: none; }
 #lockhint .lk { font-size: 34px; line-height: 1; font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif; }
 #lockhint.unlock .lt { display: none; }
-#lockhint.small { padding: 4px 5px; gap: 0; border-radius: 8px; background: rgba(16,19,25,.85); }
-#lockhint.small .lk { font-size: 14px; }
+#lockhint.small { box-sizing: border-box; justify-content: center; padding: 0 4px; gap: 0; border-radius: 6px; background: rgba(16,19,25,.92); }
+#lockhint.small .lk { font-size: 12px; }
 #lockhint.small .lt { display: none; }
+
+/* the switch, first in the header: a fixed 20 px tab (글자 % leaves it), the padlock drawn in lines -
+   off = dim and open, on = bright and closed */
+.head .pill.lockbtn {
+  flex: none; width: 20px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; color: rgba(255,255,255,.42);
+}
+.lockbtn svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.lockbtn .body { stroke-width: 1.5; }
+.lockbtn .shut { display: none; }
+.head .pill.lockbtn.on { color: #fff; }
+.lockbtn.on .shut { display: inline; }
+.lockbtn.on .open { display: none; }
+.head .pill.lockbtn:hover { color: rgba(255,255,255,.75); }
+.head .pill.lockbtn.on:hover { color: #fff; }
 
 #lockhint .lk.wiggle { animation: lock-wiggle .24s ease-out; }
 @keyframes lock-wiggle {

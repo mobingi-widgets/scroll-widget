@@ -732,7 +732,6 @@ function menuItems() {
     type: 'segment', id: 'show', label: '표시', tip: '숨기면 트레이 아이콘으로 다시 표시합니다',
     options: [['always', '항상'], ['game', '게임 앞'], ['hidden', '숨김']].map(([id, l]) => ({ id, label: l, on: cfg.show === id })),
   });
-  items.push(...(lock ? lock.menuItems() : []));     // 잠금 [끔 | 켬]
   items.push({
     type: 'segment', id: 'wings', label: '날개 하루', tip: '날개 증감의 하루 경계 (게임 일일 초기화 시각)',
     options: [[null, '미정'], ['05:00', '5시'], ['06:00', '6시'], ['07:00', '7시'], ['09:00', '9시']].map(([id, l]) => ({ id: id || '', label: l, on: (sync.wingsReset || null) === id })),
