@@ -997,6 +997,8 @@ window.widget.onFeed((d) => {
     document.body.classList.toggle('wboth', !!d.wboth);              // the anchored side's width bar too
     placeBubble();                       // the ☰ may have moved to the other end
     if (d.width) setWidthTip(d.width, d.defWidth);
+    // 글자 % (1.6.0): the reading text only (style.css --text); lines grow, the list fits again
+    if (d.text) { document.documentElement.style.setProperty('--text', String(d.text / 100)); fitTab(); placeBubble(); }
   } else if (d.type === 'width') {
     // the side bar is being dragged: a live label; gone when let go
     const lab = $('wlabel');

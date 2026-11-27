@@ -81,6 +81,8 @@ function measure() {
   });
 }
 window.widget.onFeed((d) => {
+  // 글자 % (main.js): the reading text and the box's cap grow, measured at that size
+  if (d.type === 'tip') document.documentElement.style.setProperty('--text', String(d.text || 1));
   if (d.type === 'tip') { current = d.model; seq = d.seq; render(current, false); measure(); }
   else if (d.type === 'tip-more' && current) { render(current, true); measure(); }
 });

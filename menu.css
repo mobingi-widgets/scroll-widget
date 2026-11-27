@@ -48,10 +48,13 @@ body { font: 700 12px/1.35 "Malgun Gothic", "Segoe UI", system-ui, sans-serif; c
 .seg span.pos.top i { top: 4px; }
 .seg span.pos.center i { top: 8px; }
 .seg span.pos.bottom i { top: 12px; }
-.seg span.fs1 { font-size: 9.5px; }
-.seg span.fs2 { font-size: 11px; }
-.seg span.fs3 { font-size: 13px; }
 /* one line with its own buttons (업데이트: state · check now · auto switch) */
+/* stepper (배율 · 글자 %): [−] value [+], the value as wide as '150%' so the buttons stay put */
+.row.stepper { cursor: default; }
+.row.stepper:hover { background: none; }
+.stepper { flex: none; display: flex; align-items: center; gap: 2px; }
+.step-v { min-width: 38px; text-align: center; font-size: 11px; color: #cfd3da; font-variant-numeric: tabular-nums; }
+.stepper .icon-btn.disabled:hover { background: none; }
 .row.still { cursor: default; }
 .row.still:hover { background: none; }
 .icon-btn {

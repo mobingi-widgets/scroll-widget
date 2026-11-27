@@ -92,7 +92,7 @@ function draw(items) {
     const r = el('div', `row ${type}${it.disabled ? ' disabled' : ''}${it.warn ? ' warn' : ''}${type === 'segment' ? ' seg-row' : ''}` +
       `${type === 'line' && !it.id ? ' still' : ''}`);
     r.appendChild(el('span', 'label', it.label));
-    if (it.value || it.dot) {
+    if ((it.value || it.dot) && type !== 'stepper') {
       const v = el('span', 'value', it.value);
       if (it.dot) v.prepend(el('span', `dot ${it.dot}`));       // the title's state: ok / bad / idle
       r.appendChild(v);
@@ -103,6 +103,19 @@ function draw(items) {
     if (type === 'segment') {
       const s = el('span', 'seg');
       for (const o of it.options) s.appendChild(option(it, o));
+      r.appendChild(s);
+    }
+    if (type === 'stepper') {            // label · [−] value [+] (배율 · 글자 %, 1.9.0); a limit greys its button
+      const s = el('span', 'stepper');
+      const v = Number(it.value);
+      const step = (text, to, off) => {
+        const b = el('span', `icon-btn${off ? ' disabled' : ''}`, text);
+        tipOn(b, it.tip, `${key}:${text}`, back);
+        b.addEventListener('click', (e) => { e.stopPropagation(); if (!off) window.ctx.pick(it.id, String(to)); });
+        return b;
+      };
+      s.append(step('−', v - it.step, v - it.step < it.min), el('span', 'step-v', `${v}${it.unit || ''}`),
+        step('+', v + it.step, v + it.step > it.max));
       r.appendChild(s);
     }
     if (type === 'line') {               // a line with its own small buttons and a switch

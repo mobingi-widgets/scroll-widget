@@ -16,6 +16,8 @@
 //         shown instead of the label, glyph = 'top' | 'center' | 'bottom' - a small screen picture) }
 // A 'line' has its own buttons: actions?: [{ id, text, label, tip?, disabled? }] and toggle?: { id,
 // label, long?, on, tip? }; the line itself is clickable when it has an id.
+// A 'stepper' is label · [−] value [+]: { id, label, value, min, max, step, unit?, tip? } - a click picks
+// (id, the new value as text); the tray gets the values as a submenu.
 // A 'bar' is a row of icon buttons (the rarely used ones) and one at the far end: buttons: [{ id,
 // icon, label, tip?, disabled?, options? (a click steps to the next) }], end: { id, icon, text, label }.
 'use strict';
@@ -191,6 +193,11 @@ function toNative(items, act) {
       out.push({ label: text(it), enabled: !!it.id && !it.disabled, click: () => act(it.id) });
       for (const a of it.actions || []) out.push({ label: a.label, enabled: !a.disabled, click: () => act(a.id) });
       if (it.toggle) out.push({ label: it.toggle.long || it.toggle.label, type: 'checkbox', checked: !!it.toggle.on, click: () => act(it.toggle.id) });
+    } else if (it.type === 'stepper') {
+      const values = [];
+      for (let v = it.min; v <= it.max; v += it.step) values.push(v);
+      out.push({ label: `${it.label} · ${it.value}${it.unit || ''}`,
+        submenu: values.map((v) => ({ label: `${v}${it.unit || ''}`, type: 'radio', checked: v === Number(it.value), click: () => act(it.id, String(v)) })) });
     } else if (it.type === 'bar') {
       for (const b of [...(it.buttons || []), ...(it.end ? [it.end] : [])]) {
         if (b.options) out.push({ label: b.label, submenu: b.options.map((o) => ({ label: o.label, type: 'radio', checked: !!o.on, click: () => act(b.id, o.id) })) });

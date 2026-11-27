@@ -91,11 +91,22 @@ const WIDTH_STRIP = 8;
 // v5 (1.5.0): the window is the area the user set (dock.areaRect) - align + dx + width + fy +
 // maxH as before describe it with the content at its top (valign 'top'), the same picture as
 // the content-sized window had; fyb = its bottom edge once the content sits at the bottom
-const DEFAULTS = { width: 270 + WIDTH_STRIP, align: 'left', ...POS.left, valign: 'top', fyb: 0.9, show: 'always', opacity: 1, expanded: false, v: 5, font: 'mid',
+const DEFAULTS = { width: 270 + WIDTH_STRIP, align: 'left', ...POS.left, valign: 'top', fyb: 0.9, show: 'always', opacity: 1, expanded: false, v: 5, scale: 100, text: 100,
   toast: { on: true, pos: 'top', min: 'info' } };
-// 글자 작게/중간/크게 (user 2026-11-27): times the zoom that follows the game window's size;
-// everything of this program takes it (overlay, tooltip, menu, toast, update window, notice)
-const FONT_SCALE = { small: 0.85, mid: 1, large: 1.2 };
+// 배율 % and 글자 % (user 2026-11-27, 1.6.0 - people play at different in-game UI scales):
+// - 배율 (cfg.scale) times the zoom that follows the game window's size; every window of this
+//   program takes it (overlay, tooltip, menu, toasts, update window, notice)
+// - 글자 (cfg.text) only the reading text of the overlay and the tooltip (--text in style.css and
+//   tip.html): icons, bars, padding and the width stay; lines grow, so the area shows fewer
+// Until 1.5.x one setting, 글자 작게/중간/크게 = 배율 85/100/120 % - it becomes 배율 90/100/120 (loadCfg).
+const SCALE = { min: 70, max: 150, step: 10 };
+const TEXT = { min: 80, max: 150, step: 10 };
+const FONT_TO_SCALE = { small: 90, mid: 100, large: 120 };
+// -> v on the range's steps, within it; nothing usable (missing, empty, not a number) = def
+const stepped = (v, r, def) => {
+  const n = v == null || v === '' ? NaN : Math.round(Number(v) / r.step) * r.step;
+  return Number.isFinite(n) ? Math.max(r.min, Math.min(r.max, n)) : def;
+};
 const WIDTH_MAX_OF_GAME = 0.4;   // the width bar stops at 40% of the game window
 const REF_GAME_HEIGHT = 680;     // DIP height the CSS sizes were set for; larger game windows zoom up
 const STALE_SEC = 90;            // no snapshot for this long = syncing has stalled
@@ -109,7 +120,10 @@ function loadCfg() {
   if (!saved.v) delete saved.show;     // v1 defaulted to 'game'; take the new default once
   if (!saved.v || saved.v < 3) { delete saved.dx; delete saved.fy; delete saved.align; }   // v3 moved it to the left
   const c = { ...DEFAULTS, ...saved, toast: { ...DEFAULTS.toast, ...(saved.toast || {}) }, v: DEFAULTS.v };
-  if (!FONT_SCALE[c.font]) c.font = 'mid';
+  if (saved.scale == null && saved.font) c.scale = FONT_TO_SCALE[saved.font] || 100;    // 1.5.x 글자 -> 배율
+  c.scale = stepped(c.scale, SCALE, 100);
+  c.text = stepped(c.text, TEXT, 100);
+  delete c.font;
   // 1.4.0 and before (v3): no strip for the width bar yet
   if ((saved.v || 0) < 4 && typeof saved.width === 'number') c.width = saved.width + WIDTH_STRIP;
   // 1.4.x and before (v4): no area yet - the same fields are the area, content at its top
@@ -359,7 +373,7 @@ function setRoom(r) {
 const widthSide = () => (appMode || cfg.align !== 'right' ? 'right' : 'left');
 function windowState() {
   return { type: 'window', expanded: !!cfg.expanded, align: cfg.align, wside: widthSide(), width: cfg.width, defWidth: DEFAULTS.width,
-    valign: appMode ? 'top' : cfg.valign, wboth: anchoredFree() };
+    valign: appMode ? 'top' : cfg.valign, wboth: anchoredFree(), text: cfg.text };
 }
 // edge 'anchored' (user 2026-11-27): the bar on the anchored side, over the game - that edge moves
 // with the cursor and the free one stays, so dx changes with the width; it stops at the game
@@ -402,7 +416,7 @@ function widthDrag(on, min, edge) {
 function place() {
   if (!win || win.isDestroyed() || isDragging()) return;
   const g = gameRectDip();
-  const z = (g ? Math.max(0.75, Math.min(1.6, g.height / REF_GAME_HEIGHT)) : 1) * (FONT_SCALE[cfg.font] || 1);
+  const z = (g ? Math.max(0.75, Math.min(1.6, g.height / REF_GAME_HEIGHT)) : 1) * (cfg.scale / 100);
   if (Math.abs(z - zoom) > 0.01) {
     zoom = z;
     win.webContents.setZoomFactor(zoom);
@@ -720,10 +734,8 @@ function menuItems() {
     options: [[null, '미정'], ['05:00', '5시'], ['06:00', '6시'], ['07:00', '7시'], ['09:00', '9시']].map(([id, l]) => ({ id: id || '', label: l, on: (sync.wingsReset || null) === id })),
   });
   items.push(...(toast ? toast.menuItems() : []));      // 알림 [끔 | where]
-  items.push({
-    type: 'segment', id: 'font', label: '글자',
-    options: [['small', '작게', 'fs1'], ['mid', '중간', 'fs2'], ['large', '크게', 'fs3']].map(([id, label, cls]) => ({ id, label, face: '가', cls, on: cfg.font === id })),
-  });
+  items.push({ type: 'stepper', id: 'scale', label: '배율', value: cfg.scale, unit: '%', ...SCALE, tip: '위젯·메뉴·말풍선 전체 크기' });
+  items.push({ type: 'stepper', id: 'text', label: '글자', value: cfg.text, unit: '%', ...TEXT, tip: '위젯·툴팁의 글자만' });
   items.push({
     type: 'segment', id: 'opacity', label: '투명도',
     options: [1, 0.9, 0.8, 0.7, 0.6].map((o) => ({ id: String(o), label: String(Math.round(o * 100)), on: Math.abs((cfg.opacity || 1) - o) < 0.01 })),
@@ -759,7 +771,9 @@ function menuAct(id, opt) {
       toFeed({ cmd: 'refresh' });
       return true;
     case 'toast-pos': case 'toast-min': case 'toast-test': return toast ? toast.menuAct(id, opt) : false;
-    case 'font': if (FONT_SCALE[opt]) { saveCfg({ font: opt }); place(); } return false;   // the menu itself changes size
+    // (the open menu keeps its size until it closes; the value changes in place)
+    case 'scale': saveCfg({ scale: stepped(opt, SCALE, cfg.scale) }); place(); return true;
+    case 'text': saveCfg({ text: stepped(opt, TEXT, cfg.text) }); toPage(windowState()); return true;
     case 'opacity': setOpacity(Number(opt)); return true;
     case 'notice': consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: 'view', zoom }); return false;
     case 'quit': app.quit(); return false;
@@ -874,7 +888,7 @@ ipcMain.on('ui', (_e, action, arg) => {
     placeTip();
     if (arg && tipWin && !tipWin.isDestroyed()) {
       tipSeq += 1;
-      tipWin.webContents.send('feed', { type: 'tip', model: arg.model, seq: tipSeq });
+      tipWin.webContents.send('feed', { type: 'tip', model: arg.model, seq: tipSeq, text: cfg.text / 100 });
     }
   } else if (action === 'tip-more') {
     if (tipWin && !tipWin.isDestroyed()) tipWin.webContents.send('feed', { type: 'tip-more' });
@@ -944,6 +958,13 @@ ipcMain.on('ui', (_e, action, arg) => {
   }
 });
 
+// No page of this program navigates or opens a window by itself (as in 망호 스캐너 1.8.1): a link or a
+// dropped file must not turn the overlay, the menu or a notice into a web page
+app.on('web-contents-created', (_e, wc) => {
+  wc.on('will-navigate', (e) => e.preventDefault());
+  wc.setWindowOpenHandler(() => ({ action: 'deny' }));
+});
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -961,7 +982,7 @@ if (!app.requestSingleInstanceLock()) {
       const guard = !fs.existsSync(path.join(__dirname, '.git')) && uui.hasPrevious();
       // started fine (an update waiting on update-ok.json must not roll back while the notice is read)
       const onShown = () => updater.markHealthy(path.join(app.getPath('userData'), 'update-ok.json'), VERSION);
-      const answer = await consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: guard ? 'guard' : 'ask', onShown, zoom: FONT_SCALE[cfg.font] || 1 });
+      const answer = await consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: guard ? 'guard' : 'ask', onShown, zoom: cfg.scale / 100 });
       if (answer === 'rollback') { uui.rollback(); return; }
       if (answer !== true) { app.quit(); return; }
       saveCfg({ notice: noticeV, noticeAt: new Date().toISOString(), noticeDeclined: null });
