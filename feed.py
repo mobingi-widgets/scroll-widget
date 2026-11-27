@@ -52,7 +52,7 @@ import paths  # noqa: E402
 import weekly_scrolls as ws  # noqa: E402
 from game import MMError, GameError, call, rows, ingredients, WING, PAID_COMMANDS  # noqa: E402
 
-VERSION = "1.4.3"
+VERSION = "1.4.4"
 PRIVATE = paths.data("weekly_scrolls_widget.json")   # this widget's own bookkeeping (EXP per skill)
 NOTIFY = paths.data("widget_notify.jsonl")           # widget.py notify (appended queue)
 RUNS = paths.data_dir()
@@ -874,6 +874,8 @@ def main():
             wings.set_reset(cmd.get("value"))
             continue
         if kind in ("refresh", "recipes"):
+            if kind == "refresh":             # ☰ 지금 새로고침: the snapshot after this answers it
+                emit({"type": "refresh-start"})
             for k in ("fast", "stock", "works"):
                 due[k] = 0
             if kind == "recipes":

@@ -129,12 +129,18 @@ function create(o) {
     send('toast', m);                  // type last: a feed's {type: 'notify'} must not win
   }
 
-  // -> true when it is shown or kept for later, false when the settings turn it away
+  // -> true when it is shown or kept for later, false when the settings turn it away.
+  // m.id: one toast that changes in place (progress, then the result) - never kept for later
+  // (stale progress is no use), so false while the game window is not on screen.
   function notify(m) {
     const s = settings();
     if (!s.on || !m || !m.text) return false;
     if ((LEVEL_RANK[m.level] ?? 0) < (LEVEL_RANK[s.min] ?? 0)) return false;
-    if (!onScreen()) { backlog.push(m); return true; }
+    if (!onScreen()) {
+      if (m.id) return false;
+      backlog.push(m);
+      return true;
+    }
     show(m);
     return true;
   }

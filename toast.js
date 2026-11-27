@@ -52,7 +52,7 @@ function show(m) {
   text.appendChild(count);
   el.append(dot, text);
   el.title = [m.by ? `보낸 이: ${m.by}` : '', m.detail || ''].filter(Boolean).join('\n');
-  const t = { text: m.text, level: m.level || 'info', el, count: 1, countEl: count, timer: 0 };
+  const t = { id: m.id || null, text: m.text, level: m.level || 'info', el, count: 1, countEl: count, textEl: text, timer: 0 };
   if (t.level === 'action') {
     const x = document.createElement('button');
     x.className = 'close hit';
@@ -69,7 +69,26 @@ function show(m) {
   report();
 }
 
+// a toast with an id is one toast that changes in place ("스캔 중…" -> "스캔 완료 · 새 글 2")
+function update(t, m) {
+  t.text = m.text;
+  t.level = m.level || 'info';
+  t.textEl.firstChild.nodeValue = m.text;
+  t.count = 1;
+  t.countEl.textContent = '';
+  t.el.classList.remove('info', 'warn', 'action');
+  t.el.classList.add(t.level);
+  arm(t, m.sec);
+  report();
+}
+
 function add(m) {
+  if (m.id) {
+    const mine = shown.find((t) => t.id === m.id);
+    if (mine) { update(mine, m); return; }
+    const queued = waiting.findIndex((w) => w.id === m.id);
+    if (queued >= 0) { waiting[queued] = m; return; }
+  }
   const same = shown.find((t) => t.text === m.text) || waiting.find((w) => w.text === m.text);
   if (same && same.el) {               // already on screen: count it and restart its clock
     same.count += 1;

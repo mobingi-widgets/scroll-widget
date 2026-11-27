@@ -295,11 +295,21 @@ document.addEventListener('mousedown', (e) => {
 // problems from main.js: the ☰ becomes a red ⚠ and says what is wrong
 // "새로운 업데이트가 있습니다!" - a bubble under the ☰ that takes no room (click: the update
 // window); hidden while the menu is open
-$('updpill').addEventListener('click', () => window.widget.ui('update-open'));
+// With toasts off, short messages (update check, 지금 새로고침) take its place for a few seconds.
 let updPill = false;
+let updToast = null;
+let updToastT = 0;
 let menuOpen = false;
+$('updpill').addEventListener('click', () => {
+  if (updToast) { updToast = null; drawPill(); return; }     // a message: click = dismiss
+  window.widget.ui('update-open');
+});
 function drawPill() {
-  $('updpill').hidden = !updPill || menuOpen;
+  const p = $('updpill');
+  const text = updToast ? updToast.text : updPill ? '새로운 업데이트가 있습니다!' : '';
+  p.hidden = !text || menuOpen;
+  p.textContent = text;
+  p.className = `updpill hit ${updToast ? `toast ${updToast.level}` : ''}`;
   placeBubble();
 }
 // under the ☰, its edge on the ☰'s edge toward the content, kept inside the window; the caret at the ☰
@@ -1022,9 +1032,14 @@ window.widget.onFeed((d) => {
     // update window it opens (never by itself)
     updVersion = d.version || '';
     setProblems(lastProblemList);
-    $('updpill').textContent = '새로운 업데이트가 있습니다!';
     updPill = !!d.pill;
     drawPill();
+  } else if (d.type === 'update-toast') {
+    // a short message in the bubble's place (toasts off): update check, 지금 새로고침
+    updToast = { text: d.text, level: d.level || 'info' };
+    drawPill();
+    clearTimeout(updToastT);
+    updToastT = setTimeout(() => { updToast = null; drawPill(); }, (d.sec || 3) * 1000);
   } else if (d.type === 'menu') {
     blockUntil = d.open ? Infinity : Date.now() + 300;
     menuOpen = !!d.open;

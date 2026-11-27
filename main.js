@@ -48,7 +48,7 @@ function makeUpdateUi() {
     }),
     cfg: () => cfg, saveCfg, near: () => gameRectDip(),
     // short messages go to the toast window (if toasts are off: dropped, as before); the rest to the page
-    page: (m) => (m.type === 'update-toast' ? notify({ text: m.text, level: m.level, sec: m.sec, by: '업데이트' }) : toPage(m)),
+    page: (m) => { if (m.type !== 'update-toast' || !notify({ text: m.text, level: m.level, sec: m.sec, by: '업데이트' })) toPage(m); },
     quit: () => app.quit(),
     zoom: () => zoom,                  // the update window reads at the overlay's text size
   });
@@ -183,6 +183,30 @@ let toast = null;
 
 function gameVisible() {
   return game.found && !game.minimized;
+}
+
+// A refresh the user asked for (☰ / tray → 지금 새로고침; user 2026-11-27: a pressed button must
+// not look dead): one toast that says it runs and then turns into how it went; with toasts off
+// the bubble under the ☰. The feed acknowledges the command; the snapshot after that answers.
+const STATUS_TEXT = { retry: '다시 시도 중', offline: '게임 연결 없음', loading: '읽는 중', dead: '피드 멈춤' };
+let manualRefresh = null;              // { toast, started, timer } while one is asked for
+function refreshSay(text, level, sec) {
+  if (manualRefresh && manualRefresh.toast) notify({ id: 'refresh-now', text, level, sec, by: '위젯' });
+  else toPage({ type: 'update-toast', text, level, sec });
+}
+function refreshDone(text, level) {
+  if (!manualRefresh) return;
+  refreshSay(text, level, level === 'warn' ? 6 : 3);
+  clearTimeout(manualRefresh.timer);
+  manualRefresh = null;
+}
+function refreshNow() {
+  if (manualRefresh) return;            // already asked: its toast answers
+  manualRefresh = { toast: notify({ id: 'refresh-now', text: '새로고침 중…', level: 'info', sec: 60, by: '위젯' }), started: false };
+  if (!manualRefresh.toast) toPage({ type: 'update-toast', text: '새로고침 중…', level: 'info', sec: 30 });
+  if (!feed || sync.feedDead) { refreshDone('새로고침 실패 — 피드 멈춤', 'warn'); return; }
+  manualRefresh.timer = setTimeout(() => refreshDone('새로고침 실패 — 응답 없음', 'warn'), 45000);
+  toFeed({ cmd: 'refresh' });
 }
 
 // -> shown or kept for later; false = toasts are off or below the chosen level
@@ -466,6 +490,14 @@ function startFeed() {
         notify(obj);
         continue;
       }
+      if (obj.type === 'refresh-start') {       // the feed took 지금 새로고침: the next snapshot answers it
+        if (manualRefresh) manualRefresh.started = true;
+        continue;
+      }
+      if (obj.type === 'snapshot' && manualRefresh && manualRefresh.started) {
+        refreshDone(obj.status === 'ok' ? '새로고침 완료' : `새로고침 실패 — ${STATUS_TEXT[obj.status] || obj.message || obj.status}`,
+          obj.status === 'ok' ? 'info' : 'warn');
+      }
       if (obj.type === 'char') charSwitched = true;
       if (obj.type === 'snapshot' && charSwitched && obj.char) {
         charSwitched = false;
@@ -646,7 +678,7 @@ function menuItems() {
 function menuAct(id, opt) {
   if (id.startsWith('upd-')) return uui ? uui.menuAct(id) : false;
   switch (id) {
-    case 'refresh': toFeed({ cmd: 'refresh' }); return false;
+    case 'refresh': refreshNow(); return false;
     case 'recipes': toFeed({ cmd: 'recipes' }); return false;
     case 'minimize': if (win) win.minimize(); return false;
     case 'reset-pos': saveCfg({ ...POS[cfg.align] }); place(); return false;

@@ -251,6 +251,9 @@ body.moving #menu, #menu:active { cursor: grabbing; }
 }
 .updpill:hover::before { border-bottom-color: #34d399; }
 .updpill[hidden] { display: none; }
+.updpill.toast { background: rgba(30, 34, 40, .95); border: 1px solid var(--line); }
+.updpill.toast::before { border-bottom-color: rgba(30, 34, 40, .95); }
+.updpill.toast.warn { border-color: var(--red); color: #ffd0cb; }
 @keyframes pulse { 50% { filter: brightness(1.35); } }
 /* the height line under the open panel: drag = the overlay's height limit (user 2026-11-27);
    the pair's look is with the width bar (.grab) */
