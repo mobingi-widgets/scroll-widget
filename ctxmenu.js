@@ -141,6 +141,41 @@ function create({ dir }) {
   return { open, close, isOpen: () => !!current, window: () => menu };
 }
 
+// A menu as a picture (README / review shots), drawn offscreen: no window on the user's screen and
+// no click catcher - a menu popping up at the pointer while they use the PC could take a stray
+// click (user 2026-11-27). The same page and width as the real menu; scale = the screen's pixels
+// per DIP (default: the primary display's), so it matches a capture of the real one.
+// -> Promise<PNG Buffer>
+async function shot({ dir, items, zoom = 1, scale = screen.getPrimaryDisplay().scaleFactor }) {
+  const z = zoom * scale;
+  const win = new BrowserWindow({
+    width: Math.round(W * z), height: 600, show: false, frame: false, transparent: true, backgroundColor: '#00000000',
+    webPreferences: { offscreen: true, preload: path.join(__dirname, 'menu-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  let onMsg = null;
+  try {
+    const reported = new Promise((resolve) => {
+      onMsg = (e, what, h) => { if (e.sender === win.webContents && what === 'height') resolve(Number(h) || 0); };
+      ipcMain.on('ctxmenu', onMsg);                    // (the open menu's own listener ignores this sender)
+    });
+    await win.loadFile(path.join(dir, 'menu.html'));
+    // laid out at the real menu's zoom (its height as open() gets it), then drawn in the screen's
+    // pixels: an offscreen window draws one pixel per DIP, so the page zoom takes the scale too
+    win.webContents.setZoomFactor(zoom);
+    win.webContents.send('menu', items);
+    const h = await Promise.race([reported, new Promise((r) => setTimeout(() => r(0), 3000))]);
+    win.webContents.setZoomFactor(z);
+    const dip = (v) => Math.round(v * zoom);            // whole DIP, as open() sizes the real one
+    const size = { width: Math.round(dip(W) * scale), height: Math.round(dip(Math.max(40, Math.ceil(h || 200))) * scale) };
+    win.setContentSize(size.width, size.height);
+    await new Promise((r) => setTimeout(r, 400));     // drawn at the new size
+    return (await win.webContents.capturePage({ x: 0, y: 0, ...size })).toPNG();   // (whole: a pixel more)
+  } finally {
+    ipcMain.removeListener('ctxmenu', onMsg);
+    win.destroy();
+  }
+}
+
 // The same items as a native menu (the tray): segments -> radio submenus (by their labels, not the
 // pictures), toggles -> checkboxes, a line -> its own line plus one line per button and switch.
 function toNative(items, act) {
@@ -166,4 +201,4 @@ function toNative(items, act) {
   return Menu.buildFromTemplate(out);
 }
 
-module.exports = { create, toNative };
+module.exports = { create, toNative, shot };

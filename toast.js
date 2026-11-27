@@ -21,16 +21,30 @@ function drawMore() {
   } else if (m) m.remove();
 }
 
+// Fading out takes 260 ms; meanwhile the toast is still in `shown`. The same id or text arriving
+// then brings it back (revive) - until 2026-11-27 the fade went on and took the update with it,
+// and the update's own clock later removed it a second time: indexOf -1 took the last toast off
+// the list while it stayed on screen (empty reported, the window hidden under it).
 function remove(t) {
+  if (t.leaving) return;
   clearTimeout(t.timer);
+  t.leaving = true;
   t.el.classList.remove('in');
-  setTimeout(() => {
+  t.gone = setTimeout(() => {
     t.el.remove();
-    shown.splice(shown.indexOf(t), 1);
+    const i = shown.indexOf(t);
+    if (i >= 0) shown.splice(i, 1);
     if (waiting.length) show(waiting.shift());
     drawMore();
     report();
   }, 260);
+}
+
+function revive(t) {
+  if (!t.leaving) return;
+  clearTimeout(t.gone);
+  t.leaving = false;
+  t.el.classList.add('in');
 }
 
 function arm(t, sec) {
@@ -71,6 +85,7 @@ function show(m) {
 
 // a toast with an id is one toast that changes in place ("스캔 중…" -> "스캔 완료 · 새 글 2")
 function update(t, m) {
+  revive(t);
   t.text = m.text;
   t.level = m.level || 'info';
   t.textEl.firstChild.nodeValue = m.text;
@@ -91,6 +106,7 @@ function add(m) {
   }
   const same = shown.find((t) => t.text === m.text) || waiting.find((w) => w.text === m.text);
   if (same && same.el) {               // already on screen: count it and restart its clock
+    revive(same);
     same.count += 1;
     same.countEl.textContent = ` ×${same.count}`;
     arm(same, m.sec);

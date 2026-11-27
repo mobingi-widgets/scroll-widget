@@ -588,15 +588,14 @@ async function demoShots() {
     return false;
   };
   const save = async (w, name) => {
+    // a hidden window never answers capturePage: the run would hang there
+    if (!w.isVisible()) { console.warn(`demo: ${name} - window hidden, not captured`); return; }
     if (!await settled(w)) console.warn(`demo: ${name} - not drawn or still resizing after 3 s`);
     fs.writeFileSync(path.join(DEMO, `${name}.png`), (await w.webContents.capturePage()).toPNG());
   };
-  // the real pointer may rest where the menu opens: its hover and hint line are not part of the picture
-  const unhover = async (w) => {
-    await w.webContents.insertCSS('* { pointer-events: none !important; }');
-    w.webContents.sendInputEvent({ type: 'mouseMove', x: 1, y: 1 });
-    await w.webContents.executeJavaScript("hoverKey = null; document.getElementById('hint').textContent = '';").catch(() => {});
-  };
+  // a menu as it would open at this zoom, drawn offscreen (ctxmenu.shot): no menu at the pointer and
+  // no click catcher over the user's screen (user 2026-11-27); no pointer, so no hover in it either
+  const saveMenu = async (items, name) => fs.writeFileSync(path.join(DEMO, `${name}.png`), await ctxLib.shot({ dir: __dirname, items, zoom }));
   const js = (code) => win.webContents.executeJavaScript(code);
   // start once the page has loaded (its feed handler listens): a message sent before that is lost
   if (win.webContents.isLoading()) await new Promise((r) => win.webContents.once('did-finish-load', r));
@@ -647,11 +646,8 @@ async function demoShots() {
   Object.assign(sync, { week: snap.week || sync.week, status: 'ok', t: Date.now() / 1000 - 20, char: snap.char || null });
   // the menu as it nearly always is: the update check has run (v… 최신)
   Object.assign(uui.state(), { info: { available: false }, at: Date.now() - 12 * 60000, error: '' });
-  popupMenu();
-  await wait(1200);
-  await unhover(ctx.window());
-  await save(ctx.window(), 'menu');
-  ctx.close();
+  await saveMenu(menuItems(), 'menu');
+  if (ctx) console.warn('demo: a real menu (and its click catcher) was opened');
   process.env.NOTICE_SHOT = path.join(DEMO, 'notice.png');
   await consent.ask({ dir: __dirname, title: NOTICE_TITLE });
   app.quit();
