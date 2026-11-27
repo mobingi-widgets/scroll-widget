@@ -46,7 +46,24 @@ function create({ dir }) {
     });
     menu.setAlwaysOnTop(true, 'screen-saver');
     menu.loadFile(path.join(dir, 'menu.html'));
-    menu.webContents.on('did-finish-load', () => { menu.setOpacity(0); menu.showInactive(); ready = true; if (current) render(); });
+    menu.webContents.on('did-finish-load', () => { conceal(); menu.showInactive(); ready = true; if (current) render(); });
+  }
+
+  // Between uses the menu stays shown at opacity 0, so its page keeps laying out and reports the
+  // next menu's height at once. An invisible window still takes the mouse, though: without
+  // setIgnoreMouseEvents it left a dead patch (300x500 at its last spot) over the game after the
+  // first menu (1.5.1 / 1.4.1).
+  function conceal() {
+    if (!menu || menu.isDestroyed()) return;
+    menu.setOpacity(0);
+    menu.setIgnoreMouseEvents(true);
+  }
+  function reveal() {
+    if (!menu || menu.isDestroyed() || !ready || !current) return;
+    menu.setIgnoreMouseEvents(false);
+    menu.setOpacity(1);
+    menu.setAlwaysOnTop(true, 'screen-saver');
+    menu.moveTop();
   }
 
   function render() {
@@ -83,14 +100,14 @@ function create({ dir }) {
     catcher.moveTop();
     render();
     place();
-    if (ready) { menu.setOpacity(1); menu.setAlwaysOnTop(true, 'screen-saver'); menu.moveTop(); }
+    reveal();
   }
 
   function close() {
     if (!current) return;
     const c = current;
     current = null;
-    if (menu && !menu.isDestroyed()) menu.setOpacity(0);
+    conceal();
     if (catcher && !catcher.isDestroyed()) catcher.hide();
     if (c.onClose) c.onClose();
   }
@@ -103,7 +120,7 @@ function create({ dir }) {
     if (what === 'height') {
       height = Math.max(40, Math.ceil(Number(id) || 0));
       place();
-      if (current && ready) { menu.setOpacity(1); menu.moveTop(); }
+      reveal();
       return;
     }
     if (what !== 'pick') return;

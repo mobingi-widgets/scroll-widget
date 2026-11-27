@@ -81,7 +81,10 @@ const POS = { left: { dx: 8, fy: 0.24 }, right: { dx: 6, fy: 0.29 } };
 // toast: notices in their own window over the game (user, 2026-11-27: not inside the
 // overlay, which has no room). pos = top | center | bottom of the game window;
 // min = the least important level shown (info < warn < action); on = off switch.
-const DEFAULTS = { width: 270, align: 'left', ...POS.left, show: 'always', opacity: 1, expanded: false, v: 3, font: 'mid',
+// width = the whole window: since 1.4.1 that includes the width bar's own 8px strip beside the
+// content (style.css), so the default and every saved width got 8 more - the content keeps its width
+const WIDTH_STRIP = 8;
+const DEFAULTS = { width: 270 + WIDTH_STRIP, align: 'left', ...POS.left, show: 'always', opacity: 1, expanded: false, v: 4, font: 'mid',
   toast: { on: true, pos: 'top', min: 'info' } };
 // 글자 작게/중간/크게 (user 2026-11-27): times the zoom that follows the game window's size;
 // everything of this program takes it (overlay, tooltip, menu, toast, update window, notice)
@@ -101,6 +104,8 @@ function loadCfg() {
   if (!saved.v || saved.v < 3) { delete saved.dx; delete saved.fy; delete saved.align; }   // v3 moved it to the left
   const c = { ...DEFAULTS, ...saved, toast: { ...DEFAULTS.toast, ...(saved.toast || {}) }, v: DEFAULTS.v };
   if (!FONT_SCALE[c.font]) c.font = 'mid';
+  // 1.4.0 and before (v3): no strip for the width bar yet
+  if ((saved.v || 0) < 4 && typeof saved.width === 'number') c.width = saved.width + WIDTH_STRIP;
   return c;
 }
 let cfg = DEFAULTS;
@@ -221,6 +226,8 @@ function placeToast() {
   if (visible && !toastWin.isVisible()) toastWin.showInactive();
   toastWin.setOpacity(visible ? 1 : 0);
   if (visible) { toastWin.setAlwaysOnTop(true, 'screen-saver'); toastWin.moveTop(); }
+  // invisible = never in the way, even if the last toast went away under the mouse (its 'hover' on)
+  else toastWin.setIgnoreMouseEvents(true, { forward: true });
 }
 
 function createToastWindow() {
@@ -565,7 +572,7 @@ async function demoShots() {
   const fixture = process.env.MOBINGI_WIDGET_FIXTURE || path.join(__dirname, 'docs', 'demo-snapshot.json');
   const snap = JSON.parse(fs.readFileSync(fixture, 'utf8'));
   await js("document.body.classList.add('demo')");
-  saveCfg({ width: DEFAULTS.width + 32, align: 'left' });   // the demo's padding (marks) comes on top
+  saveCfg({ width: DEFAULTS.width + 24, align: 'left' });   // the demo's padding (marks) on top, less the strip it holds
   place();
   toPage({ type: 'window', expanded: false, align: 'left' });
   toPage({ type: 'mode', app: false });
@@ -581,7 +588,7 @@ async function demoShots() {
     await save(win, `tab-${t}`);
   }
   // the width bar: a wider overlay, the extra width in the names; its live label
-  saveCfg({ width: 392 });
+  saveCfg({ width: 384 });
   place();
   toPage({ ...windowState(), expanded: true });
   toPage({ type: 'width', width: 360, live: true });
@@ -590,7 +597,7 @@ async function demoShots() {
   await save(win, 'mats-wide');
   await js("document.body.classList.remove('wsizing')");
   toPage({ type: 'width', width: 360, live: false });
-  saveCfg({ width: DEFAULTS.width + 32 });
+  saveCfg({ width: DEFAULTS.width + 24 });
   place();
   await js('window.__setExpanded(false)');
   await wait(500);

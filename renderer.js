@@ -330,7 +330,7 @@ const sizer = $('sizer');
 sizer.addEventListener('pointerdown', (e) => {
   if (e.button !== 0 || blocked()) return;
   e.preventDefault();
-  try { sizer.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+  try { e.target.setPointerCapture(e.pointerId); } catch { /* not capturable */ }   // the .grab; events bubble here
   const top = $('root').getBoundingClientRect().top;
   const at = (ev) => Math.max(120, Math.round(ev.clientY - top + 4));
   sizing = at(e);
@@ -358,11 +358,11 @@ sizer.addEventListener('pointerdown', (e) => {
 sizer.addEventListener('dblclick', () => { if (!blocked()) window.widget.ui('maxh', null); });
 
 // The width bar on the edge away from the anchored side (user 2026-11-27), like the height
-// line: hover = a thin line, drag = the width (main.js follows the cursor - the window moves
-// under it), double-click = the default width. Never narrower than the header needs; the
-// extra width goes to the tables' name column.
+// line: a faint line in its own strip, yellow on hover, drag = the width (main.js follows the
+// cursor - the window moves under it), double-click = the default width. Never narrower than
+// the header needs (headNeeds counts the strip too); the extra width goes to the name columns.
 const wsizer = $('wsizer');
-let defWidth = 270;
+let defWidth = 278;
 function setWidthTip(w, def) {
   if (def) defWidth = def;
   setTip(wsizer, { lines: [`너비 ${w}px — 끌기: 너비 바꾸기 (게임 창의 40%까지, 다른 오버레이 앞에서 멈춤)`, `두 번 클릭: 기본 너비 ${defWidth}px`] });
@@ -384,7 +384,7 @@ function headNeeds() {
 wsizer.addEventListener('pointerdown', (e) => {
   if (e.button !== 0 || blocked()) return;
   e.preventDefault();
-  try { wsizer.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+  try { e.target.setPointerCapture(e.pointerId); } catch { /* not capturable */ }   // the .grab; events bubble here
   tipFor(null);
   document.body.classList.add('wsizing');
   window.widget.ui('width-drag', { on: true, min: headNeeds() });

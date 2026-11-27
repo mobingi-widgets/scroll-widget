@@ -28,17 +28,26 @@ body {
 }
 #root { position: relative; padding: 2px 0 6px; display: flex; flex-direction: column; align-items: flex-end; }
 
-/* the width bar (user 2026-11-27): the edge away from the anchored side; unseen until hovered */
-#wsizer { position: absolute; top: 0; bottom: 0; width: 7px; cursor: ew-resize; touch-action: none; z-index: 3; }
+/* The two size bars (user 2026-11-27) are a pair: a faint 3px line in its own strip outside the
+   content (8px beside it, 9px under it), 3px off it, yellow while hovered or dragged. Only the line and a little around it
+   (.grab) takes the mouse; the rest of the strip lets clicks through to the game (1.4.1: the width
+   bar lay on the panel's edge, and both took clicks along their whole length). */
+.grab { position: absolute; pointer-events: auto; touch-action: none; }
+.grab::after { content: ''; position: absolute; border-radius: 2px; background: rgba(255,255,255,.22); box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+.grab:hover::after, body.sizing #sizer .grab::after, body.wsizing #wsizer .grab::after { background: var(--yellow); }
+/* the width bar: a strip on the edge away from the anchored side, beside the band and panel (not the tabs) */
+body.wbar-left #root { padding-left: 8px; }        /* main.js WIDTH_STRIP */
+body.wbar-right #root { padding-right: 8px; }
+#wsizer { display: none; position: absolute; top: 19px; bottom: 15px; width: 8px; pointer-events: none; z-index: 3; }
+body.expanded #wsizer { display: block; }
 body.wbar-left #wsizer { left: 0; }
 body.wbar-right #wsizer { right: 0; }
-#wsizer::after { content: ''; position: absolute; top: 50%; width: 3px; height: 44px; margin-top: -22px; border-radius: 2px; background: transparent; }
-body.wbar-left #wsizer::after { left: 2px; }
-body.wbar-right #wsizer::after { right: 2px; }
-#wsizer:hover::after, body.wsizing #wsizer::after { background: var(--yellow); box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+body.wbar-left #wsizer .grab::after { left: 2px; }
+#wsizer .grab { left: 0; top: 50%; width: 8px; height: min(76px, 100%); transform: translateY(-50%); cursor: ew-resize; }
+#wsizer .grab::after { left: 3px; top: 50%; width: 3px; height: min(44px, calc(100% - 8px)); transform: translateY(-50%); }
 #wlabel { position: absolute; top: 24px; z-index: 4; padding: 1px 6px; border-radius: 4px; background: rgba(0,0,0,.82); color: #fff; font-size: 10.5px; white-space: nowrap; pointer-events: none; }
-body.wbar-left #wlabel { left: 10px; }
-body.wbar-right #wlabel { right: 10px; }
+body.wbar-left #wlabel { left: 14px; }
+body.wbar-right #wlabel { right: 14px; }
 .line, .pill, .panel, .band {
   text-shadow: -1px -1px 0 rgba(0,0,0,.75), 1px -1px 0 rgba(0,0,0,.75), -1px 1px 0 rgba(0,0,0,.75),
                1px 1px 0 rgba(0,0,0,.75), 0 0 4px rgba(0,0,0,.6);
@@ -231,14 +240,12 @@ body.moving #menu, #menu:active { cursor: grabbing; }
 }
 .updpill[hidden] { display: none; }
 @keyframes pulse { 50% { filter: brightness(1.35); } }
-/* the height line under the open panel: drag = the overlay's height limit (user 2026-11-27) */
-#sizer { display: none; position: relative; width: 100%; height: 9px; cursor: ns-resize; touch-action: none; }
+/* the height line under the open panel: drag = the overlay's height limit (user 2026-11-27);
+   the pair's look is with the width bar (.grab) */
+#sizer { display: none; position: relative; width: 100%; height: 9px; pointer-events: none; }
 body.expanded #sizer { display: block; }
-#sizer::after {
-  content: ''; position: absolute; left: 50%; top: 3px; width: 44px; height: 3px; margin-left: -22px;
-  border-radius: 2px; background: rgba(255,255,255,.22); box-shadow: 0 0 0 1px rgba(0,0,0,.35);
-}
-#sizer:hover::after, body.sizing #sizer::after { background: var(--yellow); }
+#sizer .grab { left: 50%; top: 0; width: 76px; height: 9px; margin-left: -38px; cursor: ns-resize; }
+#sizer .grab::after { left: 16px; top: 3px; width: 44px; height: 3px; }
 body.sizing, body.sizing * { cursor: ns-resize !important; }
 body.moving #root { outline: 2px dashed var(--yellow); outline-offset: -2px; cursor: grabbing; }
 body.moving.blocked #root { outline-color: var(--red); }
@@ -265,6 +272,8 @@ body.app .band { background: none; padding-left: 4px; padding-right: 4px; }
 body.app #chips-skills { margin-right: 0; margin-left: 0; }
 body.app .head { -webkit-app-region: drag; width: 100%; }
 body.app .head .hit { -webkit-app-region: no-drag; }
+body.app.wbar-right #root { padding-right: 8px; }        /* the width bar's strip inside the box */
+body.app #wsizer { top: 21px; bottom: 15px; }
 
 /* left-hugging layout (default): mirror of the tracker - hug the left edge, fade to the right */
 body.left #root { align-items: flex-start; }
@@ -284,6 +293,8 @@ body.left .skills, body.left .chips { justify-content: flex-start; }
 /* README screenshots (main.js demoShots): a neutral backdrop instead of the game, room for the marks */
 body.demo { background: linear-gradient(160deg, #4a5566, #2b313b); }
 body.demo #root { padding: 20px 8px 8px 24px; }
+body.demo #wsizer { top: 37px; bottom: 17px; }
+body.demo.wbar-left #wsizer { left: 16px; }               /* the strip right before the content */
 .mark {
   position: fixed; width: 16px; height: 16px; border-radius: 50%; background: #ffd34a; color: #1a1408;
   font: 700 10.5px/16px "Segoe UI", sans-serif; text-align: center; box-shadow: 0 0 0 1.5px rgba(0,0,0,.55); z-index: 9;
