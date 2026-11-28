@@ -28,6 +28,7 @@ const path = require('path');
 const { toWindow, MENU_MARGIN } = require('./cardwin');
 
 const W = 300;
+const BESIDE_GAP = 6;        // DIP between the overlay and a menu opened beside it
 
 function create() {
   let menu = null;          // the menu window
@@ -87,6 +88,24 @@ function create() {
     const area = screen.getDisplayNearestPoint({ x: Math.round(a.x), y: Math.round(a.y) }).workArea;
     const w = Math.round(W * zoom);
     const h = Math.min(Math.round(height * zoom), area.height - 8);
+    // Neither above nor below the anchor has room (a tall menu, a ☰ halfway down the screen): beside the overlay
+    // instead (a.beside, its rect when the menu opened), on the side away from the list - a right-docked overlay:
+    // to its left - level with the anchor, kept on the screen; the other side if that one has no room. Only when
+    // neither has, the last resort below: at the top of the screen, over the overlay. (2026-11-28: at the user's
+    // layout the menu went there and covered 57% of the list. The rect is the one at opening: a 배율 step grows
+    // the overlay under a menu that stays put - it does not jump away from the pointer between steps.)
+    const top = a.top ?? a.y;
+    const fits = (yy) => yy >= area.y + 4 && yy + h <= area.y + area.height - 4;
+    if (a.beside && !fits(Math.round(a.y)) && !fits(Math.round(top - h))) {
+      const o = a.beside;
+      const sides = a.right ? [o.x - BESIDE_GAP - w, o.x + o.width + BESIDE_GAP] : [o.x + o.width + BESIDE_GAP, o.x - BESIDE_GAP - w];
+      const sx = sides.find((v) => v >= area.x + 4 && v + w <= area.x + area.width - 4);
+      if (sx != null) {
+        const sy = Math.max(area.y + 4, Math.min(Math.round(top), area.y + area.height - 4 - h));
+        menu.setBounds(toWindow({ x: Math.round(sx), y: sy, width: w, height: h }, zoom, MENU_MARGIN));
+        return;
+      }
+    }
     // under the anchor (above it with a.up - an area whose content sits at its bottom), right
     // edges together; flipped to stay on the screen
     let x = Math.round(a.right ? a.x - w : a.x);
@@ -99,7 +118,8 @@ function create() {
     menu.setBounds(toWindow({ x, y, width: w, height: h }, zoom, MENU_MARGIN));
   }
 
-  // open({ anchor: { x, y, right?, top?, up? } (screen DIP), build: () => items, act(id, opt) -> keep open?,
+  // open({ anchor: { x, y, right?, top?, up?, beside? (the overlay's rect: room for the menu beside it) } (screen DIP),
+  //        build: () => items, act(id, opt) -> keep open?,
   //        zoom?, onClose? })
   function open(spec) {
     if (!menu || menu.isDestroyed()) makeWindows();
