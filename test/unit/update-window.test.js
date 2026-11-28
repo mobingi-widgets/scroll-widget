@@ -26,7 +26,7 @@ class FakeWin {
     };
   }
   setAlwaysOnTop(on, level) { this.level = on ? level || 'floating' : null; }
-  loadFile() {}
+  loadFile(file, opts) { this.loaded = { file, opts }; }
   setMenu() {}
   on(ev, fn) { (this.handlers[ev] = this.handlers[ev] || []).push(fn); }
   once(ev, fn) { this.on(ev, fn); }
@@ -153,7 +153,37 @@ for (const [app, dir] of [['widget', scanDir]]) {
   api.raise();
   check(`${app} raise(): with nothing up -> only the overlay, as before`, JSON.stringify(order) === '["overlay"]', JSON.stringify(order));
 }
-fs.rmSync(tmp, { recursive: true, force: true });
 p.then(() => {});
-console.log(ok ? 'ALL OK' : 'SOME FAILED');
-process.exit(ok ? 0 : 1);
+
+// ---- 달라진 점만 보기 (2026-11-28): the edition agreed before goes to the notice page as ?seen= (notice.js marks
+// what changed since) - from the update window (update-ui.js -> consent.ask) and consent.ask itself
+const tick = () => new Promise((r) => setTimeout(r, 10));
+(async () => {
+  const ED = consent.noticeVersion(scanDir);
+  const updater = require(path.join(scanDir, 'updater.js'));
+  updater.fetchNotice = async () => scanDir;                 // (the new version's notice, verified and laid out)
+  cfg.notice = ED - 1;
+  const before = windows.length;
+  Object.assign(uui.state(), { phase: 'available', info: { available: true, version: '9.9.9', notes: '- x', notice: { version: ED } } });
+  send('update');
+  for (let i = 0; i < 50 && windows.length === before; i++) await tick();
+  const un = windows[windows.length - 1];
+  const q = (w) => (w && w.loaded && w.loaded.opts && w.loaded.opts.query) || {};
+  check('update window -> the new notice: mode=update, seen = the edition agreed before', windows.length === before + 1 && q(un).mode === 'update' && q(un).seen === String(ED - 1), JSON.stringify(un.loaded));
+  un.close();
+  await tick();
+  check('...closed (not agreed): this version kept', uui.state().phase === 'kept', uui.state().phase);
+  const asked = (opts) => { consent.ask({ dir: scanDir, title: 'x', ...opts }); const w = windows[windows.length - 1]; const r = q(w); w.close(); return r; };
+  let r = asked({ mode: 'ask', seen: 3.7 });
+  check('consent.ask seen 3.7 -> ?seen=3', r.mode === 'ask' && r.seen === '3', JSON.stringify(r));
+  for (const seen of [undefined, 0, -1, 'x']) {
+    r = asked({ mode: 'ask', seen });
+    check(`consent.ask seen ${seen} -> no seen in the query (first agreement)`, r.mode === 'ask' && !('seen' in r), JSON.stringify(r));
+  }
+  r = asked({ mode: 'view' });
+  check('☰ 이용 안내 보기 -> mode=view, no seen', r.mode === 'view' && !('seen' in r), JSON.stringify(r));
+})().catch((e) => check('seen: exception', false, e && e.stack)).then(() => {
+  fs.rmSync(tmp, { recursive: true, force: true });
+  console.log(ok ? 'ALL OK' : 'SOME FAILED');
+  process.exit(ok ? 0 : 1);
+});

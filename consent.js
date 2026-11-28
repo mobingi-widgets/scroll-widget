@@ -52,7 +52,9 @@ async function drawn(win) {
 // zoom: the overlay's text zoom (글자 작게/중간/크게), so the notice reads at the same size.
 // avoid: () => DIP rects - the overlays (this program's and the others') to open clear of (1.9.2 /
 // 1.6.2: it could open under them); it is kept above them with keepTop().
-function ask({ dir, title, mode = 'ask', iconDir, onShown, zoom = 1, avoid }) {
+// seen: the edition the user agreed to before (cfg.notice), 0 = never - lower than this notice's, the page
+// marks what changed since and offers 달라진 점만 보기 (notice.js).
+function ask({ dir, title, mode = 'ask', iconDir, onShown, zoom = 1, avoid, seen = 0 }) {
   if (open) { open.win.moveTop(); return open.promise; }
   const z = zoom > 0.3 && zoom < 4 ? zoom : 1;
   const a = screen.getPrimaryDisplay().workArea;
@@ -88,7 +90,8 @@ function ask({ dir, title, mode = 'ask', iconDir, onShown, zoom = 1, avoid }) {
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('did-finish-load', () => { if (z !== 1) win.webContents.setZoomFactor(z); });
-  win.loadFile(path.join(dir, 'notice.html'), { query: { mode } });
+  const prior = Number(seen) > 0 ? Math.floor(Number(seen)) : 0;
+  win.loadFile(path.join(dir, 'notice.html'), { query: prior ? { mode, seen: String(prior) } : { mode } });
   win.once('ready-to-show', async () => {
     win.showInactive();                        // never takes the keyboard from the game by itself
     if (onShown) { try { onShown(); } catch { /* the notice still works */ } }

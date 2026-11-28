@@ -1077,7 +1077,8 @@ if (!app.requestSingleInstanceLock()) {
       const guard = !fs.existsSync(path.join(__dirname, '.git')) && uui.hasPrevious();
       // started fine (an update waiting on update-ok.json must not roll back while the notice is read)
       const onShown = () => updater.markHealthy(path.join(app.getPath('userData'), 'update-ok.json'), VERSION);
-      const answer = await consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: guard ? 'guard' : 'ask', onShown, zoom: cfg.scale / 100 });
+      // seen: an agreement to an older edition -> what changed since is marked, 달라진 점만 보기 (notice.js)
+      const answer = await consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: guard ? 'guard' : 'ask', onShown, zoom: cfg.scale / 100, seen: cfg.notice || 0 });
       if (answer === 'rollback') { uui.rollback(); return; }
       if (answer !== true) { app.quit(); return; }
       saveCfg({ notice: noticeV, noticeAt: new Date().toISOString(), noticeDeclined: null });

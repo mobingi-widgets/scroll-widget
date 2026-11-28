@@ -27,3 +27,20 @@ button {
 button.primary { background: #17a88a; border-color: #17a88a; color: #fff; font-weight: 700; }
 button:hover { filter: brightness(1.15); }
 #buttons { display: flex; gap: 8px; }
+
+/* 달라진 점만 보기 (notice.js, 2026-11-28): the 바뀜 mark, the checkbox, the narrowed view. A removed item
+   (data-removed) shows only there, under 없어진 항목 - notice.html marks it `hidden` too, for older notice.css. */
+[data-removed] { display: none !important; }
+.changed-mark {
+  display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 4px; vertical-align: 1px;
+  font-size: 11px; line-height: 17px; font-weight: 700; color: #14171d; background: #ffd34a;
+}
+.diff-toggle { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 10px; font-size: 12.5px; color: #e7e3da; cursor: pointer; }
+.diff-toggle input { margin: 0; accent-color: #17a88a; }
+.gone-head, .gone-list, .older-note { display: none; }
+.gone-list li { text-decoration: line-through; color: #8f96a3; }
+.gone-list li * { color: inherit; }
+.older-note { margin: 12px 0 0; color: #a0aab9; font-size: 12px; }
+body.diff-only main li:not(.changed):not(.keep), body.diff-only .summary > div:not(.changed):not(.keep),
+body.diff-only .nochange, body.diff-only .lead { display: none; }
+body.diff-only .gone-head, body.diff-only .gone-list, body.diff-only .older-note { display: block; }

@@ -2,7 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="notice-version" content="1">
+<meta name="notice-version" content="2">
+<meta name="notice-marked-from" content="2">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
 <title>주간 납품 위젯 — 이용 안내</title>
 <link rel="stylesheet" href="notice.css">
@@ -46,6 +47,7 @@
     </li>
     <li>화면 설정(위치·투명도·알림·이 안내에 동의한 시각) — <code>%APPDATA%\mobingi-scroll-widget\</code>,
       다른 오버레이와 겹치지 않게 하는 창 위치 — <code>%APPDATA%\mabimo-overlays\</code></li>
+    <li data-since="2">☰ → <b>부팅 시 자동 실행</b>을 켰을 때만 현재 사용자의 Windows 시작 항목 하나 — <code>HKCU\Software\Microsoft\Windows\CurrentVersion\Run</code>의 <code>mobingi-scroll-widget</code>. 처음엔 꺼져 있습니다.</li>
   </ul>
 
   <h2>접속하는 곳</h2>
@@ -63,11 +65,11 @@
 
   <h2>그만 쓰려면</h2>
   <ul>
-    <li>☰ → 종료로 끄고, 프로그램 폴더와 위의 <code>%APPDATA%</code> 폴더 두 곳을 지우면 남는 것이 없습니다(데이터 폴더를 따로 정했다면 그곳도).</li>
+    <li data-since="2">먼저 ☰ → <b>부팅 시 자동 실행</b>을 끄고(또는 Windows 설정 → 시작 앱에서 지우고), ☰ → 종료로 끈 뒤 프로그램 폴더와 위의 <code>%APPDATA%</code> 폴더 두 곳을 지우면 남는 것이 없습니다(데이터 폴더를 따로 정했다면 그곳도).</li>
   </ul>
 </main>
 <footer>
-  <span class="ver">이용 안내 1판 · 2026-11-27</span>
+  <span class="ver">이용 안내 2판 · 2026-11-28</span>
   <span id="buttons"></span>
 </footer>
 <script src="notice.js"></script>

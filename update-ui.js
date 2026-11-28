@@ -172,7 +172,7 @@ function create(o) {
       let answer = false;
       try {
         const dir = await updater.fetchNotice(i, path.join(o.stageRoot(), 'notice'));
-        answer = await consent.ask({ dir, title: `${o.title} — 바뀐 이용 안내`, mode: 'update', iconDir: o.dir, zoom: zoom(), avoid: o.avoid });
+        answer = await consent.ask({ dir, title: `${o.title} — 바뀐 이용 안내`, mode: 'update', iconDir: o.dir, zoom: zoom(), avoid: o.avoid, seen: cfg().notice || 0 });
       } catch (e) {
         st.phase = 'error';
         st.error = String((e && e.message) || e);
