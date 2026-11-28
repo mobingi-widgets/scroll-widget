@@ -158,3 +158,6 @@ function report() {
 // a menu opened afresh starts with an empty hint
 document.documentElement.addEventListener('mouseleave', () => { hoverKey = null; });
 window.ctx.onItems(draw);
+// a press around the menu - on its shadow, which the window still takes (2026-11-28: room for the whole shadow,
+// menu.css) - closes it, as one anywhere else does (the click catcher under it)
+document.addEventListener('mousedown', (e) => { if (!e.target.closest('#menu')) window.ctx.pick('__close'); });

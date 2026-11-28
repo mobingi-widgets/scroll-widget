@@ -2,8 +2,9 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; background: transparent; overflow: hidden; }
 body { font: 700 12px/1.35 "Malgun Gothic", "Segoe UI", system-ui, sans-serif; color: #e7e3da; user-select: none; }
+/* around it: room for the whole shadow (cardwin.js MENU_MARGIN; a press there closes the menu - menu.js) */
 #menu {
-  position: absolute; left: 0; top: 0; width: 100%; padding: 4px; border-radius: 10px;
+  position: absolute; left: 20px; top: 16px; width: calc(100% - 40px); padding: 4px; border-radius: 10px;
   background: rgba(14, 17, 22, .96); border: 1px solid rgba(255,255,255,.16); box-shadow: 0 6px 18px rgba(0,0,0,.5);
 }
 .row {

@@ -15,6 +15,7 @@ const path = require('path');
 const updater = require('./updater');
 const consent = require('./consent');
 const { clearOf } = require('./dock');
+const cardwin = require('./cardwin');
 
 const EVERY_MS = 6 * 3600 * 1000;
 const W = 400;
@@ -28,6 +29,7 @@ function create(o) {
   let win = null;
   let winH = 200;
   let moved = false;         // the user dragged it by its title line: it stays there
+  let through = null;        // cardwin.clickThrough: the shadow's margin passes the mouse
   let timer = null;
   const okFile = path.join(o.userData, 'update-ok.json');
   const logFile = path.join(o.userData, 'update.log');
@@ -68,6 +70,11 @@ function create(o) {
   // window's (a small windowed game cut its bottom off). Its height follows the page (update.js
   // reports the card's whole height whenever it changes); taller than the screen, its notes scroll.
   // Once the user has dragged it by its title line, only its size changes.
+  // (2026-11-28) the card has room for its whole shadow now (cardwin.js): the placing below is the same as before,
+  // on the rect the window had then (the card and 6 px around it, 14 in height - update.js), and the window is
+  // that card plus its margin - so the card lands where it did
+  const frameToWin = (f, z) => cardwin.toWindow({ x: f.x + 6 * z, y: f.y + 6 * z, width: f.width - 12 * z, height: f.height - 14 * z }, z);
+  const winToFrame = (b, z) => { const c = cardwin.toCard(b, z); return { x: c.x - 6 * z, y: c.y - 6 * z, width: c.width + 12 * z, height: c.height + 14 * z }; };
   function placeWin() {
     if (!win || win.isDestroyed()) return;
     const z = zoom();
@@ -78,9 +85,9 @@ function create(o) {
     const h = Math.min(Math.round(winH * z), a.height - 20);
     const inArea = (x, y) => ({ x: Math.round(Math.max(a.x + 10, Math.min(x, a.x + a.width - w - 10))),
       y: Math.round(Math.max(a.y + 10, Math.min(y, a.y + a.height - h - 10))), width: w, height: h });
-    if (moved) { const b = win.getBounds(); win.setBounds(inArea(b.x, b.y)); return; }
+    if (moved) { const f = winToFrame(win.getBounds(), z); win.setBounds(frameToWin(inArea(f.x, f.y), z)); return; }
     const want = inArea(g.x + (g.width - w) / 2, g.y + Math.max(10, (g.height - h) / 3));
-    win.setBounds(clearOf(want, o.avoid ? o.avoid() : [], a));
+    win.setBounds(frameToWin(clearOf(want, o.avoid ? o.avoid() : [], a), z));
   }
   // the overlay raises itself every 2 s (main.js raise); this, right after, keeps the window
   // above it (as the 차단·메모 window). -> whether it is up
@@ -92,12 +99,14 @@ function create(o) {
   }
   function openWindow() {
     if (win && !win.isDestroyed()) { send(); win.moveTop(); return; }
+    const first = frameToWin({ x: 0, y: 0, width: W, height: winH }, 1);
     win = new BrowserWindow({
-      width: W, height: winH, show: false, frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false,
+      width: first.width, height: first.height, show: false, frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false,
       resizable: false, minimizable: false, maximizable: false, skipTaskbar: true, alwaysOnTop: true, title: `${o.title} 업데이트`,
       webPreferences: { preload: path.join(__dirname, 'update-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
     });
     win.setAlwaysOnTop(true, 'screen-saver');
+    through = cardwin.clickThrough(win, { zoom });     // the mouse over the shadow goes to the game
     moved = false;
     win.on('will-move', () => { moved = true; });     // (only a move by the user, not setBounds)
     win.webContents.on('will-navigate', (e) => e.preventDefault());
@@ -111,6 +120,7 @@ function create(o) {
   ipcMain.on('update-ui', async (e, action, arg) => {
     if (!win || e.sender !== win.webContents) return;
     if (action === 'height') { winH = Math.max(120, Math.ceil(Number(arg) || 0)); placeWin(); return; }
+    if (action === 'hold') { if (through) through.hold(arg); return; }      // a button held on the card
     if (action === 'later' || action === 'close') { closeWindow(); return; }
     if (action === 'page' && st.info) { shell.openExternal(st.info.page); return; }
     if (action === 'skip' && st.info) { o.saveCfg({ skipVersion: st.info.version }); pageState(); closeWindow(); return; }

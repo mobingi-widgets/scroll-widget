@@ -28,6 +28,7 @@ class FakeWin {
   setAlwaysOnTop(on, level) { this.level = on ? level || 'floating' : null; }
   loadFile(file, opts) { this.loaded = { file, opts }; }
   setMenu() {}
+  setIgnoreMouseEvents(v) { this.ignore = v; }
   on(ev, fn) { (this.handlers[ev] = this.handlers[ev] || []).push(fn); }
   once(ev, fn) { this.on(ev, fn); }
   emit(ev, ...a) { (this.handlers[ev] || []).forEach((f) => f(...a)); }
@@ -62,6 +63,11 @@ check('clearOf: nowhere clear -> where it would go', JSON.stringify(r) === JSON.
 
 // ---- the real update-ui.js window
 const ui = require(path.join(scanDir, 'src', 'shared', 'update-ui.js'));
+// (2026-11-28) the window has room for the card's whole shadow: placing is checked on the rect the window had
+// before (the card and 6 px around it, 14 in height), the same numbers as then
+const cw = require(path.join(scanDir, 'src', 'shared', 'cardwin.js'));
+const frame = (b, z = 1.4) => { const c = cw.toCard(b, z); return { x: Math.round(c.x - 6 * z), y: Math.round(c.y - 6 * z), width: Math.round(c.width + 12 * z), height: Math.round(c.height + 14 * z) }; };
+const toWin = (f, z = 1.4) => cw.toWindow({ x: f.x + 6 * z, y: f.y + 6 * z, width: f.width - 12 * z, height: f.height - 14 * z }, z);
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'updz-'));
 const overlay = { x: 1300, y: 60, width: 300, height: 800 };
 let game = { x: 0, y: 0, width: 1600, height: 900 };
@@ -78,7 +84,7 @@ upd.name = 'update';
 upd.emit('wc:did-finish-load');
 const send = (action, arg) => (ipc.handlers['update-ui'] || []).forEach((f) => f({ sender: upd.webContents }, action, arg));
 send('height', 230);
-let b = upd.getBounds();
+let b = frame(upd.getBounds());
 const over = (p, q) => p.x < q.x + q.width && q.x < p.x + p.width && p.y < q.y + q.height && q.y < p.y + p.height;
 check('update window: zoom 1.4, 400 x 230 CSS -> 560 x 322', b.width === 560 && b.height === 322 && upd.zoom === 1.4, JSON.stringify(b));
 check('update window: clear of this overlay and the other program\'s', !over(b, overlay) && !over(b, others[0]), JSON.stringify(b));
@@ -87,22 +93,22 @@ check('update window: at the overlays\' level (screen-saver), shown without the 
 game = { x: 200, y: 200, width: 640, height: 300 };
 others = [];
 send('height', 330);
-b = upd.getBounds();
+b = frame(upd.getBounds());
 check('a 300 px game window does not cap it (the screen does): 330 x 1.4 = 462', b.height === 462 && b.y >= 10 && b.y + b.height <= 1040 - 10, JSON.stringify(b));
 work = { x: 0, y: 0, width: 1920, height: 400 };
 send('height', 330);
-b = upd.getBounds();
+b = frame(upd.getBounds());
 check('a short screen caps it inside the work area (the notes scroll in the page)', b.height === 380 && b.y === 10, JSON.stringify(b));
 work = { x: 0, y: 0, width: 1920, height: 1040 };
 // the user drags it by its title line: later size reports keep that spot
 upd.emit('will-move');
-upd.bounds = { ...upd.bounds, x: 100, y: 500 };
+upd.bounds = toWin({ ...frame(upd.bounds), x: 100, y: 500 });
 send('height', 260);
-b = upd.getBounds();
+b = frame(upd.getBounds());
 check('dragged -> stays where the user put it, only its size follows', b.x === 100 && b.y === 500 && b.height === 364, JSON.stringify(b));
-upd.bounds = { ...upd.bounds, y: 900 };
+upd.bounds = toWin({ ...frame(upd.bounds), y: 900 });
 send('height', 260);
-b = upd.getBounds();
+b = frame(upd.getBounds());
 check('...pulled back inside the work area when it would leave it', b.y === 1040 - 10 - 364, JSON.stringify(b));
 order.length = 0;
 check('keepTop: up -> moved to the top', uui.keepTop() === true && JSON.stringify(order) === '["update"]');

@@ -5,10 +5,11 @@ html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
 body { font: 400 13px/1.5 "Malgun Gothic", "Segoe UI", system-ui, sans-serif; color: #e7e3da; user-select: none; }
 /* the window is as tall as the card (update.js reports it); a window capped by a short screen
    keeps the card inside it - the notes give way and scroll, the buttons stay (1.9.2 / 1.6.2) */
+/* the margin is room for the whole shadow (cardwin.js MARGIN - the window passes the mouse there) */
 #card {
-  margin: 6px; padding: 16px 18px 14px; border-radius: 14px; background: #181c23;
+  margin: 30px 30px 40px; padding: 16px 18px 14px; border-radius: 14px; background: #181c23;
   border: 1px solid rgba(255,255,255,.14); box-shadow: 0 8px 28px rgba(0,0,0,.55);
-  display: flex; flex-direction: column; max-height: calc(100vh - 12px); overflow-y: auto;
+  display: flex; flex-direction: column; max-height: calc(100vh - 70px); overflow-y: auto;
 }
 #card > * { flex: none; }
 #card > #notes { flex: 0 1 auto; min-height: 0; }

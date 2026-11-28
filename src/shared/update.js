@@ -106,6 +106,11 @@ function report() {
   window.upd.act('height', h);
 }
 new ResizeObserver(report).observe($('card'));
+// a button held on the card (a drag, a selection leaving it): the window keeps the mouse until it is let go
+// (update-ui.js / cardwin.js - over the shadow the window otherwise passes the mouse to the game)
+$('card').addEventListener('pointerdown', () => window.upd.act('hold', true));
+for (const ev of ['pointerup', 'pointercancel']) window.addEventListener(ev, () => window.upd.act('hold', false));
+window.addEventListener('blur', () => window.upd.act('hold', false));
 window.addEventListener('resize', report);
 if (document.fonts) {
   document.fonts.ready.then(report);

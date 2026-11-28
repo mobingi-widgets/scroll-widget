@@ -25,6 +25,7 @@
 
 const { BrowserWindow, ipcMain, screen, Menu } = require('electron');
 const path = require('path');
+const { toWindow, MENU_MARGIN } = require('./cardwin');
 
 const W = 300;
 
@@ -48,7 +49,7 @@ function create() {
     catcher.loadURL('data:text/html,<html><body style="margin:0;height:100vh;background:rgba(0,0,0,0.01)"></body></html>');
     catcher.webContents.on('before-input-event', () => close());
     menu = new BrowserWindow({
-      width: W, height, show: false, frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false,
+      width: W + MENU_MARGIN.l + MENU_MARGIN.r, height: height + MENU_MARGIN.t + MENU_MARGIN.b, show: false, frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false,
       resizable: false, focusable: false, skipTaskbar: true, alwaysOnTop: true, title: 'menu',
       webPreferences: { preload: path.join(__dirname, 'menu-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
     });
@@ -94,7 +95,8 @@ function create() {
     if (x < area.x + 4) x = area.x + 4;
     if (x + w > area.x + area.width - 4) x = area.x + area.width - 4 - w;
     if (y + h > area.y + area.height - 4) y = Math.max(area.y + 4, Math.round((a.top ?? a.y) - h));
-    menu.setBounds({ x, y, width: w, height: h });
+    // the menu there; its window has room around it for the whole shadow (2026-11-28 - menu.css, cardwin.js)
+    menu.setBounds(toWindow({ x, y, width: w, height: h }, zoom, MENU_MARGIN));
   }
 
   // open({ anchor: { x, y, right?, top?, up? } (screen DIP), build: () => items, act(id, opt) -> keep open?,
@@ -151,8 +153,9 @@ function create() {
 // -> Promise<PNG Buffer>
 async function shot({ items, zoom = 1, scale = screen.getPrimaryDisplay().scaleFactor }) {
   const z = zoom * scale;
+  const m = MENU_MARGIN;
   const win = new BrowserWindow({
-    width: Math.round(W * z), height: 600, show: false, frame: false, transparent: true, backgroundColor: '#00000000',
+    width: Math.round((W + m.l + m.r) * z), height: 600, show: false, frame: false, transparent: true, backgroundColor: '#00000000',
     webPreferences: { offscreen: true, preload: path.join(__dirname, 'menu-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   let onMsg = null;
@@ -170,9 +173,11 @@ async function shot({ items, zoom = 1, scale = screen.getPrimaryDisplay().scaleF
     win.webContents.setZoomFactor(z);
     const dip = (v) => Math.round(v * zoom);            // whole DIP, as open() sizes the real one
     const size = { width: Math.round(dip(W) * scale), height: Math.round(dip(Math.max(40, Math.ceil(h || 200))) * scale) };
-    win.setContentSize(size.width, size.height);
+    // the menu as before (its shadow's margin around it - menu.css - is left out of the picture)
+    const at = { x: Math.round(m.l * z), y: Math.round(m.t * z) };
+    win.setContentSize(size.width + Math.round((m.l + m.r) * z), size.height + Math.round((m.t + m.b) * z));
     await new Promise((r) => setTimeout(r, 400));     // drawn at the new size
-    return (await win.webContents.capturePage({ x: 0, y: 0, ...size })).toPNG();   // (whole: a pixel more)
+    return (await win.webContents.capturePage({ ...at, ...size })).toPNG();   // (whole: a pixel more)
   } finally {
     ipcMain.removeListener('ctxmenu', onMsg);
     win.destroy();
