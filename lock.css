@@ -16,9 +16,12 @@ body.locked #root { opacity: var(--lock-dim, .5); transition: opacity .25s; }
    touch crisper than the background so they read over the rows under them (1.9.1). */
 #lockhint .lk, #lockhint .lt { opacity: .72; }
 #lockhint .lk { font-size: 34px; line-height: 1; font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif; }
+/* the big hint's soft ellipse - one source: 망호 스캐너's 매우 작게 tile (style.css body.tile #tile) sits on the
+   same one (user 2026-11-28) */
+:root { --lock-hint-bg: radial-gradient(ellipse closest-side at center, rgba(16,19,25,.64) 0%, rgba(16,19,25,.58) 42%, rgba(16,19,25,.3) 72%, rgba(16,19,25,0) 100%); }
 #lockhint.big {
   padding: 24px 50px 22px;
-  background: radial-gradient(ellipse closest-side at center, rgba(16,19,25,.64) 0%, rgba(16,19,25,.58) 42%, rgba(16,19,25,.3) 72%, rgba(16,19,25,0) 100%);
+  background: var(--lock-hint-bg);
 }
 /* the small one covers the ☰ (it cannot be clicked while locked): darker at its middle, so the ☰
    under it does not show through */
