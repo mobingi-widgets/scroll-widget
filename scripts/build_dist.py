@@ -2,9 +2,9 @@
 """Make the shareable build of 주간 납품 위젯: the program only, no personal data, no game art.
 Only when the user asks for one (workspace policy).
 
-    python build_dist.py                  # -> <workspace>/dist/주간 납품 위젯 <version>.zip
-    python build_dist.py --release        # -> <workspace>/dist/release/scroll-widget/<version>/
-    python build_dist.py --release --out <dir>
+    python scripts/build_dist.py                  # -> <workspace>/dist/주간 납품 위젯 <version>.zip
+    python scripts/build_dist.py --release        # -> <workspace>/dist/release/scroll-widget/<version>/
+    python scripts/build_dist.py --release --out <dir>
 
 --release makes the GitHub release files the widget's updater reads (updater.js):
     scroll-widget-<v>-full.zip   the program ("주간 납품 위젯/" folder) - first install
@@ -14,10 +14,12 @@ Only when the user asks for one (workspace policy).
                                  in (node_modules, data/ and icons/ stay where they are)
     scroll-widget-notice-<N>.html the notice (이용 안내) of this version, N = its notice-version
     latest.json                  {schema, app, version, pub_date, notes (CHANGELOG), runtime, notice, assets}
-    *.minisig                    each of the five, signed by ../tools/release/sign.js
+    *.minisig                    each of the five, signed by <workspace>/tools/release/sign.js
+--release first runs `npm test` (test/run.js) and makes nothing if a suite fails.
 Publishing them (tag v<version>) is done separately (tools/release/publish.js).
 
-Left out: node_modules (installed on first run), data/ and every record/log, icons/*.png
+Left out: node_modules (installed on first run), data/ and every record/log, the tests (test/) and the dev
+tools (scripts/: this file), icons/*.png
 (cut from the game's screen - each user makes their own), caches. The script refuses to
 build if a packed file mentions a name from the local record (a character name), a
 webhook or this machine (the workspace path, a path into a user profile folder, the Windows user name),
@@ -35,7 +37,8 @@ import subprocess
 import sys
 import zipfile
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+SCRIPTS = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(SCRIPTS)            # the app (this file is in its scripts/)
 WORKSPACE = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import paths  # noqa: E402
@@ -43,7 +46,7 @@ import paths  # noqa: E402
 NAME = "주간 납품 위젯"
 APP_ID = "scroll-widget"
 INCLUDE_EXT = {".js", ".html", ".css", ".py", ".json", ".md", ".bat", ".png", ".ps1"}
-SKIP_DIRS = {"node_modules", "data", "__pycache__", ".git"}
+SKIP_DIRS = {"node_modules", "data", "__pycache__", ".git", "test", "scripts"}   # tests and dev tools never ship
 SKIP_FILES = {"package-lock.json",
               "AGENTS.md", "CLAUDE.md"}      # instructions for AI agents in the workspace - never shipped
 KEY_LIKE = re.compile(r"(\.pem$|\.key$|minisign|\.credentials)", re.I)
@@ -161,6 +164,13 @@ def electron_selftest(files):
     return run.returncode == 0 and "verified" in run.stdout, out[-800:]
 
 
+def run_tests():
+    """`npm test` (test/run.js): a release is never made from a tree whose tests fail. -> (ok, its output)"""
+    npm = "npm.cmd" if os.name == "nt" else "npm"
+    run = subprocess.run([npm, "test"], cwd=HERE, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    return run.returncode == 0, (run.stdout or "") + (run.stderr or "")
+
+
 def main(argv):
     release = "--release" in argv
     out_root = argv[argv.index("--out") + 1] if "--out" in argv else os.path.join(WORKSPACE, "dist")
@@ -182,6 +192,11 @@ def main(argv):
     if not changelog_notes(ver):
         print("CHANGELOG.md에 %s 절이 없음 — 릴리스 노트가 비어 만들지 않음" % ver)
         return 1
+    ok, out = run_tests()
+    if not ok:
+        print("npm test 실패 — 릴리스를 만들지 않음:\n" + "\n".join(out.strip().splitlines()[-40:]))
+        return 1
+    print("  " + out.strip().splitlines()[-1])
     rel_dir = os.path.join(out_root, "release", APP_ID, ver)
     os.makedirs(rel_dir, exist_ok=True)
     for n in os.listdir(rel_dir):

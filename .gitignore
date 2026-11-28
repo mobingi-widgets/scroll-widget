@@ -12,5 +12,5 @@ __pycache__/
 # cut from the game's screen - each user makes their own with icons/extract_glyphs.py
 icons/*.png
 
-# build output (build_dist.py)
+# build output (scripts/build_dist.py)
 dist/

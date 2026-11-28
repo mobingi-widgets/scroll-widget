@@ -168,3 +168,10 @@ python widget.py undo                # 마지막 손 보정 되돌리기
 ## 버전
 
 `CHANGELOG.md` — 프로그램 버전과 데이터 형식 변경 이력.
+
+## 개발
+
+| 폴더 | 하는 일 |
+|---|---|
+| `test/` | 시험: `npm test` — 단위 시험(node · python)과 화면 밖 페이지 시험(Electron, 화면에 창을 띄우지 않음). 배포본에 들어가지 않음 |
+| `scripts/build_dist.py` | 배포본 만들기: `python scripts/build_dist.py`, 릴리스 파일은 `--release`(먼저 `npm test`, 실패하면 만들지 않음). 배포본에 들어가지 않음 |
