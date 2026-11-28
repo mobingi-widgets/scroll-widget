@@ -21,7 +21,7 @@ const POSITIONS = ['top', 'center', 'bottom'];
 const WIDTH = 380;                     // DIP at the reference game height; zooms like the overlay
 const DEFAULTS = { on: true, pos: 'top', min: 'info' };
 
-// create({ dir, title, source, settings: () => cfg.toast, save: (patch) => void,
+// create({ title, source, settings: () => cfg.toast, save: (patch) => void,
 //          gameRect: () => DIP rect | null, gameVisible: () => bool, zoom: () => number, always? })
 //   source = who the "collected while away" summary is from (the program's short name)
 //   always = show without a game window too (screenshots)
@@ -49,7 +49,7 @@ function create(o) {
   win.setIgnoreMouseEvents(true, { forward: true });
   win.setOpacity(0);
   win.on('page-title-updated', (e) => e.preventDefault());   // keep the program's own window title
-  win.loadFile(path.join(o.dir, 'toast.html'));
+  win.loadFile(path.join(__dirname, 'toast.html'));
   win.webContents.on('did-finish-load', () => {
     win.webContents.setZoomFactor(o.zoom());
     ready = true;

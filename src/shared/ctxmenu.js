@@ -28,7 +28,7 @@ const path = require('path');
 
 const W = 300;
 
-function create({ dir }) {
+function create() {
   let menu = null;          // the menu window
   let catcher = null;       // the click catcher
   let ready = false;
@@ -53,7 +53,7 @@ function create({ dir }) {
       webPreferences: { preload: path.join(__dirname, 'menu-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
     });
     menu.setAlwaysOnTop(true, 'screen-saver');
-    menu.loadFile(path.join(dir, 'menu.html'));
+    menu.loadFile(path.join(__dirname, 'menu.html'));
     menu.webContents.on('did-finish-load', () => { conceal(); menu.showInactive(); ready = true; if (current) render(); });
   }
 
@@ -149,7 +149,7 @@ function create({ dir }) {
 // click (user 2026-11-27). The same page and width as the real menu; scale = the screen's pixels
 // per DIP (default: the primary display's), so it matches a capture of the real one.
 // -> Promise<PNG Buffer>
-async function shot({ dir, items, zoom = 1, scale = screen.getPrimaryDisplay().scaleFactor }) {
+async function shot({ items, zoom = 1, scale = screen.getPrimaryDisplay().scaleFactor }) {
   const z = zoom * scale;
   const win = new BrowserWindow({
     width: Math.round(W * z), height: 600, show: false, frame: false, transparent: true, backgroundColor: '#00000000',
@@ -161,7 +161,7 @@ async function shot({ dir, items, zoom = 1, scale = screen.getPrimaryDisplay().s
       onMsg = (e, what, h) => { if (e.sender === win.webContents && what === 'height') resolve(Number(h) || 0); };
       ipcMain.on('ctxmenu', onMsg);                    // (the open menu's own listener ignores this sender)
     });
-    await win.loadFile(path.join(dir, 'menu.html'));
+    await win.loadFile(path.join(__dirname, 'menu.html'));
     // laid out at the real menu's zoom (its height as open() gets it), then drawn in the screen's
     // pixels: an offscreen window draws one pixel per DIP, so the page zoom takes the scale too
     win.webContents.setZoomFactor(zoom);

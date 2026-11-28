@@ -21,20 +21,20 @@ function items({ installed = true } = {}) {
   const now = Date.now();
   const cfg = { show: 'always', subs: 'tab', nickMode: 'code', opacity: 1, scale: 100, text: 100, lockShrink: false, newAlert: false, newSoundVol: 0,
     role: 'all', noGame: 'hide', toast: { on: true, pos: 'top', min: 'info' } };
-  const toast = require(path.join(dir, 'toast-ui.js')).create({ dir, title: 'x', source: 'x', settings: () => cfg.toast, save: () => {},
+  const toast = require(path.join(dir, 'src', 'shared', 'toast-ui.js')).create({ dir, title: 'x', source: 'x', settings: () => cfg.toast, save: () => {},
     gameRect: () => null, gameVisible: () => false, zoom: () => 1, always: true });
-  const uui = require(path.join(dir, 'update-ui.js')).create({
+  const uui = require(path.join(dir, 'src', 'shared', 'update-ui.js')).create({
     dir, repo: PKG.name, app: PKG.name, version: PKG.version, title: 'x', userData: fs.mkdtempSync(path.join(os.tmpdir(), 'menu-test-')),
     canInstall: () => false, cfg: () => cfg, saveCfg: () => {}, near: () => null, page: () => {}, quit: () => {}, zoom: () => 1,
   });
   Object.assign(uui.state(), { info: { available: false }, at: now - 60000, error: '' });
-  const autostart = require(path.join(dir, 'autostart.js')).create({ name: 'test', installed: () => installed, exe: () => 'x.exe', want: () => false,
+  const autostart = require(path.join(dir, 'src', 'shared', 'autostart.js')).create({ name: 'test', installed: () => installed, exe: () => 'x.exe', want: () => false,
     save: () => {}, login: { get: () => ({ launchItems: [] }), set: () => {} } });
   const stand = { cfg, toast, uui, autostart, lock: { topItems: () => [] }, appMode: false, problems: () => [] };
   if (scanner) Object.assign(stand, { scan: { okAt: now - 20000, paused: false, busy: false, nextAt: now + 40000, error: '' }, state: { src: { name: '예시 갤러리' } } });
   else Object.assign(stand, { sync: { week: '2026-11-26', status: 'ok', t: now / 1000 - 20, char: null, feedDead: false, wingsReset: null } });
-  const src = fs.readFileSync(path.join(dir, 'main.js'), 'utf8');
-  const { api } = load(path.join(dir, 'main.js'), ['ago', 'SCALE', 'TEXT', ...(src.includes('const SOUND_VOL') ? ['SOUND_VOL'] : []), 'menuItems'], stand);
+  const src = fs.readFileSync(path.join(dir, 'src', 'main.js'), 'utf8');
+  const { api } = load(path.join(dir, 'src', 'main.js'), ['ago', 'SCALE', 'TEXT', ...(src.includes('const SOUND_VOL') ? ['SOUND_VOL'] : []), 'menuItems'], stand);
   return api.menuItems();
 }
 
@@ -61,7 +61,7 @@ app.whenReady().then(async () => {
     const picks = [];
     ipcMain.on('pick', (_e, id, opt) => picks.push(opt ? `${id}:${opt}` : id));
     ipcMain.on('h', () => {});
-    await w.loadFile(path.join(dir, 'menu.html'));
+    await w.loadFile(path.join(dir, 'src', 'shared', 'menu.html'));
     const js = (c) => w.webContents.executeJavaScript(c);
     const show = async (its) => { w.webContents.send('items', its); await wait(300); };
     await show(list);
@@ -124,7 +124,7 @@ app.whenReady().then(async () => {
     t.check('a greyed button (부팅 시 자동 실행 in a source copy): no pick', picks.length === 0 && /\bdisabled\b/.test(await js("document.querySelector('.bar .ib:nth-child(3)').className")), picks.join());
     // ---- the tray's native menu: the same ids
     const acts = [];
-    const native = require(path.join(dir, 'ctxmenu.js')).toNative(list, (id, opt) => acts.push(opt ? `${id}:${opt}` : id));
+    const native = require(path.join(dir, 'src', 'shared', 'ctxmenu.js')).toNative(list, (id, opt) => acts.push(opt ? `${id}:${opt}` : id));
     const walk = (m) => { for (const it of m.items) { if (it.submenu) walk(it.submenu); else if (it.click && it.enabled && it.type !== 'separator') it.click(it, null, {}); } };
     walk(native);
     const reach = ['notice', 'reset-pos', 'autostart:on', 'nogame:window', 'quit', ...(scanner ? ['scan', 'nickmode:codeonly'] : ['refresh'])];

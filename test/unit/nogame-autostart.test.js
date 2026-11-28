@@ -4,8 +4,8 @@
 'use strict';
 const path = require('path');
 const { ROOT: dir } = require('../lib/env');
-const nogame = require(path.join(dir, 'nogame.js'));
-const autostart = require(path.join(dir, 'autostart.js'));
+const nogame = require(path.join(dir, 'src', 'shared', 'nogame.js'));
+const autostart = require(path.join(dir, 'src', 'shared', 'autostart.js'));
 let ok = true;
 let n = 0;
 const check = (what, cond, extra = '') => { n++; if (!cond || process.argv.includes('--list')) console.log(`${cond ? 'ok  ' : 'FAIL'} ${what}${extra ? `  (${extra})` : ''}`); if (!cond) ok = false; };
@@ -279,7 +279,7 @@ check('a source copy: a click never fails (writes nothing), no bubble', x.a.set(
 // for want of a game, and sync() runs before the window is made), then sent once
 const fs = require('fs');
 const { load } = require('../lib/extract');
-const MAIN = path.join(dir, 'main.js');
+const MAIN = path.join(dir, 'src', 'main.js');
 const src = fs.readFileSync(MAIN, 'utf8');
 check('main.js: autostart.create gets onFail -> bubble(text)', /onFail: \(_kind, text\) => bubble\(text\)/.test(src));
 const sent = [];

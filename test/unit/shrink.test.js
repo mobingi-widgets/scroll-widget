@@ -16,7 +16,7 @@ Module._load = function (req, ...rest) {
   if (req === 'electron') return { Menu: { buildFromTemplate: (t) => ({ items: t.map((i) => ({ ...i, items: undefined, submenu: i.submenu ? { items: i.submenu } : undefined })) }) }, BrowserWindow: class {}, ipcMain: { on() {} }, screen: {} };
   return realLoad.call(this, req, ...rest);
 };
-const L = require(path.join(dir, 'lock.js'));
+const L = require(path.join(dir, 'src', 'shared', 'lock.js'));
 const { load } = require('../lib/extract');
 
 const W = kind === 'scanner' ? 300 : 278;           // CSS width of the area
@@ -45,8 +45,8 @@ function world({ scale = 100, text = 100, shrink = true } = {}) {
     saveCfg, place: () => holder.place(), toPage: (m) => env.msgs.push(m), widthSide: () => 'left', anchoredFree: () => false,
     DEFAULTS: { width: W }, stepped: (v) => Number(v) };
   // (scanner 1.10.0 매우 작게: windowState says tile: tiled() - the widget has none)
-  const names = fs.readFileSync(path.join(dir, 'main.js'), 'utf8').includes('const tiled = ') ? ['shrunk', 'effScale', 'effText', 'tiled', 'windowState'] : ['shrunk', 'effScale', 'effText', 'windowState'];
-  const { api } = load(path.join(dir, 'main.js'), names, stand);
+  const names = fs.readFileSync(path.join(dir, 'src', 'main.js'), 'utf8').includes('const tiled = ') ? ['shrunk', 'effScale', 'effText', 'tiled', 'windowState'] : ['shrunk', 'effScale', 'effText', 'windowState'];
+  const { api } = load(path.join(dir, 'src', 'main.js'), names, stand);
   env.api = api;
   // main.js place(), as far as size goes: zoom = game factor x the effective 배율; the window keeps its
   // docked edge (right for the scanner, left for the widget) and its top
@@ -155,7 +155,7 @@ const extra = kind === 'scanner'
   ? { scan: { okAt: now - 2000, nextAt: now + 50000 }, state: { src: { name: 'x' } } }
   : { sync: { status: 'ok', t: now / 1000 } };
 const saves = [];
-const { api } = load(path.join(dir, 'main.js'), ['ago', 'SCALE', 'TEXT', ...(require('fs').readFileSync(path.join(dir, 'main.js'), 'utf8').includes('const SOUND_VOL') ? ['SOUND_VOL'] : []), 'menuItems', 'menuAct'], {
+const { api } = load(path.join(dir, 'src', 'main.js'), ['ago', 'SCALE', 'TEXT', ...(require('fs').readFileSync(path.join(dir, 'src', 'main.js'), 'utf8').includes('const SOUND_VOL') ? ['SOUND_VOL'] : []), 'menuItems', 'menuAct'], {
   cfg: m.cfg, lock: m.lock, toast, uui, appMode: false, problems: () => [], ...extra,
   saveCfg: (p) => { saves.push(p); Object.assign(m.cfg, p); }, place: () => {}, toPage: () => {}, windowState: () => ({}),
   stepped: (v) => Number(v), setShow() {}, setSubs() {}, setOpacity() {}, NICK_MODES: [], shell: {}, consent: {}, scanNow() {}, refreshNow() {}, toFeed() {},

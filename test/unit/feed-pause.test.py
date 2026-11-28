@@ -10,7 +10,7 @@ import time
 
 sys.dont_write_bytecode = True
 W = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # the app (test/unit/ is in it)
-sys.path.insert(0, W)
+sys.path.insert(0, os.path.join(W, "src"))     # the program's Python lives in src/
 import feed  # noqa: E402
 
 ok = True

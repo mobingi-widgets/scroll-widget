@@ -96,7 +96,7 @@ function glyph(name, cls) {
   const img = el('img');
   img.alt = '';
   img.onerror = () => { g.replaceChildren(document.createTextNode(skillAbbr(name).slice(0, 1))); g.classList.add('txt'); };
-  img.src = `icons/${skillIcon(name) || 'none'}.png`;
+  img.src = `../icons/${skillIcon(name) || 'none'}.png`;     // the user's glyphs: icons/ at the program root
   g.appendChild(img);
   return g;
 }

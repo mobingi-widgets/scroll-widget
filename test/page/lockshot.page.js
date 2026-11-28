@@ -28,10 +28,10 @@ app.whenReady().then(async () => {
     const H = 520;
     const align = scanner ? 'right' : 'left';
     const win = new BrowserWindow({ width: W, height: H, show: false, frame: false, transparent: true, backgroundColor: '#00000000',
-      webPreferences: { offscreen: true, preload: path.join(dir, 'preload.js'), contextIsolation: true, sandbox: false } });
+      webPreferences: { offscreen: true, preload: path.join(dir, 'src', 'preload.js'), contextIsolation: true, sandbox: false } });
     const ui = [];
     ipcMain.on('ui', (_e, action, arg) => ui.push([action, arg]));
-    await win.loadFile(path.join(dir, 'index.html'));
+    await win.loadFile(path.join(dir, 'src', 'index.html'));
     const feed = (d) => win.webContents.send('feed', d);
     const js = (code) => win.webContents.executeJavaScript(code);
 
@@ -195,8 +195,8 @@ app.whenReady().then(async () => {
     await headShot('8-head-on');
     // the tooltip, drawn by the real tip.html (as main.js feeds it)
     const tipWin = new BrowserWindow({ width: 440, height: 130, show: false, frame: false, transparent: true,
-      webPreferences: { offscreen: true, preload: path.join(dir, 'preload.js'), contextIsolation: true, sandbox: false } });
-    await tipWin.loadFile(path.join(dir, 'tip.html'));
+      webPreferences: { offscreen: true, preload: path.join(dir, 'src', 'preload.js'), contextIsolation: true, sandbox: false } });
+    await tipWin.loadFile(path.join(dir, 'src', 'tip.html'));
     tipWin.webContents.send('feed', { type: 'tip', model: b.tip, seq: 1, text: 1 });
     await wait(400);
     fs.writeFileSync(path.join(out, `${kind}-9-tooltip.png`), (await tipWin.webContents.capturePage()).toPNG());
@@ -232,7 +232,7 @@ app.whenReady().then(async () => {
     check('open again: nothing left over', !back.locked && back.hidden && Number(back.dim) === 1);
 
     // ---- the ☰ menu and the tray's (main.js menuItems with a real lock.js)
-    const lockLib = require(path.join(dir, 'lock.js'));
+    const lockLib = require(path.join(dir, 'src', 'shared', 'lock.js'));
     const fakeWin = { isDestroyed: () => false, isVisible: () => true, getBounds: () => ({ x: 0, y: 0, width: W, height: H }), getOpacity: () => 1, setOpacity: () => {} };
     const cfg = { show: 'always', subs: 'tab', nickMode: 'code', opacity: 1, scale: 100, text: 100, align, lock: true };
     let t = 0;
@@ -247,7 +247,7 @@ app.whenReady().then(async () => {
         { id: 'toast-test', icon: 'toast', label: '시험 알림', tip: '시험 알림 띄우기' }],
     };
     const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
-    const uui = require(path.join(dir, 'update-ui.js')).create({
+    const uui = require(path.join(dir, 'src', 'shared', 'update-ui.js')).create({
       dir, repo: kind, app: kind, version: pkg.version, title: 'x', userData: fs.mkdtempSync(path.join(os.tmpdir(), 'lockshot-')),
       canInstall: () => false, cfg: () => cfg, saveCfg: () => {}, near: () => null, page: () => {}, quit: () => {}, zoom: () => 1,
     });
@@ -259,8 +259,8 @@ app.whenReady().then(async () => {
       const s = JSON.parse(fs.readFileSync(path.join(dir, 'docs', 'demo-snapshot.json'), 'utf8'));
       Object.assign(standIns, { sync: { week: s.week, status: 'ok', t: now / 1000 - 20, char: s.char || null } });
     }
-    const { api } = load(path.join(dir, 'main.js'), ['ago', 'SCALE', 'TEXT', ...(require('fs').readFileSync(path.join(dir, 'main.js'), 'utf8').includes('const SOUND_VOL') ? ['SOUND_VOL'] : []), 'menuItems'], standIns);
-    const ctxLib = require(path.join(dir, 'ctxmenu.js'));
+    const { api } = load(path.join(dir, 'src', 'main.js'), ['ago', 'SCALE', 'TEXT', ...(require('fs').readFileSync(path.join(dir, 'src', 'main.js'), 'utf8').includes('const SOUND_VOL') ? ['SOUND_VOL'] : []), 'menuItems'], standIns);
+    const ctxLib = require(path.join(dir, 'src', 'shared', 'ctxmenu.js'));
     const open = api.menuItems();
     check('☰: no 잠금 on/off line (the header button is the switch); 잠금 때 [그대로 | 작게] there (1.10.0)', !open.some((it) => it.id === 'lock') && open.some((it) => it.id === 'lockshrink'));
     check('☰ while open: no 잠금 해제', !open.some((it) => it.id === 'lock-release'));

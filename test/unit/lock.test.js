@@ -12,7 +12,7 @@ const realLoad = Module._load;
 Module._load = function (req, ...rest) {
   return req === 'electron' ? { screen: { getCursorScreenPoint: () => ({ x: 0, y: 0 }) } } : realLoad.call(this, req, ...rest);
 };
-const L = require(path.join(dir, 'lock.js'));
+const L = require(path.join(dir, 'src', 'shared', 'lock.js'));
 
 // ---- traces: [{ x, y, t }] every 30 ms
 const STEP = 30;
@@ -258,7 +258,7 @@ m.at(OUT, 60);
 check('no repeats; a reloaded page is told the state again', quiet && m.msgs.length === n0 + 1);
 
 // ---- hitpoll: sample every poll; locked -> the mouse passes, bars away
-const hitpoll = require(path.join(dir, 'hitpoll.js'));
+const hitpoll = require(path.join(dir, 'src', 'shared', 'hitpoll.js'));
 const hp = { on: false, near: null, samples: 0, lockedNow: false };
 const win = { isDestroyed: () => false, isVisible: () => true, getBounds: () => ({ x: 0, y: 0, width: 300, height: 400 }) };
 const h = hitpoll.create({

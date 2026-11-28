@@ -13,13 +13,13 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { ROOT: dir, PKG, out: OUTDIR } = require('../lib/env');
+const { PKG, SRC, SHARED, out: OUTDIR } = require('../lib/env');
 const t = require('../lib/check')();
 const out = OUTDIR('notice');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const EXPECT = { 'mangho-scanner': 5, 'mobingi-scroll-widget': 2 };     // this release's editions (user 2026-11-28)
 
-const HTML = fs.readFileSync(path.join(dir, 'notice.html'), 'utf8');
+const HTML = fs.readFileSync(path.join(SRC, 'notice.html'), 'utf8');
 const metaOf = (html, n) => Number((html.match(new RegExp(`<meta\\s+name="${n}"\\s+content="(\\d+)"`)) || [])[1] || 0);
 const ED = metaOf(HTML, 'notice-version');
 const FROM = metaOf(HTML, 'notice-marked-from');
@@ -28,13 +28,15 @@ const NEXT = ED + 1;
 
 // a folder laid out like updater.fetchNotice's: a notice.html beside a notice.css / notice.js
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'notice-page-'));
-function folder(name, html, from = dir) {
+function folder(name, html, from = SHARED) {
   const d = path.join(tmp, name);
   fs.mkdirSync(d, { recursive: true });
   fs.writeFileSync(path.join(d, 'notice.html'), html);
   for (const f of ['notice.css', 'notice.js']) fs.copyFileSync(path.join(from, f), path.join(d, f));
   return d;
 }
+// this program's own notice as consent.js shows it: src/notice.html beside the shared notice.css / notice.js
+const dir = folder('app', HTML);
 // the made-up next edition: one item added, one removed (kept as <li hidden data-removed>), marks complete from it
 const nextHtml = HTML
   .replace(/(<meta\s+name="notice-version"\s+content=")\d+(">)/, `$1${NEXT}$2`)
@@ -74,12 +76,9 @@ app.whenReady().then(async () => {
   ipcMain.on('notice', (_e, answer) => answers.push(answer));
   const open = async (d, query) => {
     const w = new BrowserWindow({ width: 560, height: 700, show: false,
-      webPreferences: { offscreen: true, preload: path.join(dir, 'notice-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+      webPreferences: { offscreen: true, preload: path.join(SHARED, 'notice-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
     const errors = [];
-    w.webContents.on('console-message', (e, level, message) => {
-      const lv = typeof e.level === 'string' ? e.level : level;
-      if (lv === 'error' || lv === 3) errors.push(e.message || message);
-    });
+    w.webContents.on('console-message', (e) => { if (e.level === 'error') errors.push(e.message); });
     await w.loadFile(path.join(d, 'notice.html'), { query });
     await w.webContents.executeJavaScript('new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)))');
     const st = () => w.webContents.executeJavaScript(STATE);
@@ -89,11 +88,11 @@ app.whenReady().then(async () => {
   };
   try {
     // ---- this edition (consent.js reads it; an agreement to the one before is asked again)
-    const consent = require(path.join(dir, 'consent.js'));
+    const consent = require(path.join(SHARED, 'consent.js'));
     const want = EXPECT[PKG.name];
-    t.check(`this release's edition: consent.noticeVersion = ${want}`, consent.noticeVersion(dir) === want && ED === want, `${consent.noticeVersion(dir)} / ${ED}`);
+    t.check(`this release's edition: consent.noticeVersion = ${want}`, consent.noticeVersion(SRC) === want && ED === want, `${consent.noticeVersion(SRC)} / ${ED}`);
     t.check('an agreement to the edition before is asked again at start (main.js: cfg.notice < this edition)',
-      /\(cfg\.notice \|\| 0\) < noticeV/.test(fs.readFileSync(path.join(dir, 'main.js'), 'utf8')) && (want - 1) < consent.noticeVersion(dir));
+      /\(cfg\.notice \|\| 0\) < noticeV/.test(fs.readFileSync(path.join(SRC, 'main.js'), 'utf8')) && (want - 1) < consent.noticeVersion(SRC));
     t.check('marks: each data-since is an edition up to this one, from notice-marked-from on', FROM >= 1 && FROM <= ED && sinceAll.length > 0 && sinceAll.every((s) => s >= FROM && s <= ED), JSON.stringify({ FROM, sinceAll }));
     t.check('this edition\'s own changes are marked', sinceAll.includes(ED));
 

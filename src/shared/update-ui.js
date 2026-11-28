@@ -20,7 +20,7 @@ const EVERY_MS = 6 * 3600 * 1000;
 const W = 400;
 
 function create(o) {
-  // o: { dir, repo, app, version, title, userData, canInstall(), stageRoot(), installOpts() -> {appDir, keep,
+  // o: { dir (the program's assets/ - icon.png for the notice window), repo, app, version, title, userData, canInstall(), stageRoot(), installOpts() -> {appDir, keep,
   //      launch, launchArgs, launchCwd}, previousDir(), cfg(), saveCfg(patch), near() -> DIP rect | null,
   //      page(msg), quit(), zoom() (optional: the overlay's text zoom - the window follows it),
   //      avoid() -> DIP rects (optional: the overlays - this program's and the others' - to stay clear of) }

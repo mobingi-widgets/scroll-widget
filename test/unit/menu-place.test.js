@@ -20,7 +20,7 @@ const load = Module._load;
 Module._load = function (req, ...rest) { return req === 'electron' ? fake : load.call(this, req, ...rest); };
 
 const { ROOT } = require('../lib/env');
-const lib = require(require('path').join(ROOT, 'ctxmenu.js'));
+const lib = require(require('path').join(ROOT, 'src', 'shared', 'ctxmenu.js'));
 let ok = true;
 const check = (what, cond, extra = '') => { console.log(`${cond ? 'ok  ' : 'FAIL'} ${what}${extra ? `  (${extra})` : ''}`); if (!cond) ok = false; };
 const ctx = lib.create({ dir: ROOT });

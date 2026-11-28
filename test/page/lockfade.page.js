@@ -22,8 +22,8 @@ app.on('window-all-closed', () => {});
 async function form(label, dir, kind, opt) {
   const OP = 0.6;
   const win = new BrowserWindow({ width: 320, height: 420, show: false, frame: false, transparent: true, backgroundColor: '#00000000',
-    webPreferences: { offscreen: true, preload: path.join(dir, 'preload.js'), contextIsolation: true, sandbox: false } });
-  await win.loadFile(path.join(dir, 'index.html'));
+    webPreferences: { offscreen: true, preload: path.join(dir, 'src', 'preload.js'), contextIsolation: true, sandbox: false } });
+  await win.loadFile(path.join(dir, 'src', 'index.html'));
   win.webContents.setZoomFactor(opt.zoom || 1);
   const feed = (d) => win.webContents.send('feed', d);
   const js = (c) => win.webContents.executeJavaScript(c);
@@ -41,7 +41,7 @@ async function form(label, dir, kind, opt) {
   feed({ type: 'mode', app: false });
   feed({ type: 'room', h: 400, game: 600, max: 400, area: true });
   // a real lock.js, its window a stand-in over the real page (bounds at 0,0 - DIP = CSS px x the zoom)
-  const L = require(path.join(dir, 'lock.js'));
+  const L = require(path.join(dir, 'src', 'shared', 'lock.js'));
   let t = 0;
   const fakeWin = { isDestroyed: () => false, isVisible: () => true, getBounds: () => ({ x: 0, y: 0, width: 320, height: 420 }),
     getOpacity: () => OP, setOpacity: () => {}, webContents: win.webContents };

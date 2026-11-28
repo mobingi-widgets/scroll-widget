@@ -17,10 +17,10 @@ app.whenReady().then(async () => {
   fs.mkdirSync(out, { recursive: true });
   const W = 258 + (kind === 'widget' ? 20 : 0);
   const win = new BrowserWindow({ width: W, height: 560, show: false, frame: false, transparent: true, backgroundColor: '#00000000',
-    webPreferences: { offscreen: true, preload: path.join(dir, 'preload.js'), contextIsolation: true, sandbox: false } });
+    webPreferences: { offscreen: true, preload: path.join(dir, 'src', 'preload.js'), contextIsolation: true, sandbox: false } });
   const ui = [];
   ipcMain.on('ui', (_e, action, arg) => ui.push([action, arg]));
-  await win.loadFile(path.join(dir, 'index.html'));
+  await win.loadFile(path.join(dir, 'src', 'index.html'));
   const feed = (d) => win.webContents.send('feed', d);
   const js = (code) => win.webContents.executeJavaScript(code);
   const last = (action) => { for (let i = ui.length - 1; i >= 0; i -= 1) if (ui[i][0] === action) return ui[i][1]; return null; };
@@ -111,7 +111,7 @@ app.whenReady().then(async () => {
   // the warning bubble (main.js bubble <- autostart.js FAIL, 2026-11-28): a message with a line break shows as two
   // lines, inside the window, on either side and either end (measured from the left edge - at its last spot it
   // shrank to the room right of it: four lines in 150 px)
-  const { FAIL } = require(path.join(dir, 'autostart.js'));
+  const { FAIL } = require(path.join(dir, 'src', 'shared', 'autostart.js'));
   for (const valign of ['top', 'bottom']) {
     for (const align of ['right', 'left']) {
       const name = `warn-${align}-${valign}`;

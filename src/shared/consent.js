@@ -15,10 +15,23 @@
 
 const { BrowserWindow, ipcMain, screen } = require('electron');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { clearOf } = require('./dock');
 
 let open = null;                      // { win, promise } while a notice is up
+
+// The page is notice.html with notice.css / notice.js BESIDE it (its links are flat - every version's update
+// window lays a downloaded notice out that way, with its own copies: updater.fetchNotice). notice.html is each
+// program's (src/), the two are shared (here): a folder without them gets a laid-out copy in the temp folder.
+// -> { dir, made } (made: the copy, removed when the notice closes)
+function viewDir(dir) {
+  if (fs.existsSync(path.join(dir, 'notice.css')) && fs.existsSync(path.join(dir, 'notice.js'))) return { dir, made: false };
+  const view = fs.mkdtempSync(path.join(os.tmpdir(), 'mobingi-notice-'));
+  fs.copyFileSync(path.join(dir, 'notice.html'), path.join(view, 'notice.html'));
+  for (const f of ['notice.css', 'notice.js']) fs.copyFileSync(path.join(__dirname, f), path.join(view, f));
+  return { dir: view, made: true };
+}
 
 function noticeVersion(dir) {
   try {
@@ -45,7 +58,8 @@ async function drawn(win) {
 }
 
 // -> Promise<true | false | 'rollback'>. mode: ask | guard | update | view (see notice.js).
-// dir: the folder holding notice.html (+ notice.css, notice.js) - a downloaded notice too.
+// dir: the folder holding notice.html - the program's own (src/; laid out with the shared notice.css / notice.js
+// first, viewDir) or a downloaded one (laid out already).
 // onShown: called once the notice is on screen. The start guard marks the update healthy
 // there: the swap script (apply-update.ps1) rolls back unless the new version reports
 // within 60 s, and reading the notice must not count against that.
@@ -61,6 +75,7 @@ function ask({ dir, title, mode = 'ask', iconDir, onShown, zoom = 1, avoid, seen
   const w = Math.min(Math.round(560 * z), a.width - 40);
   const h = Math.min(Math.round(700 * z), a.height - 40);
   const icon = path.join(iconDir || dir, 'icon.png');
+  const view = viewDir(dir);
   const want = { x: Math.round(a.x + (a.width - w) / 2), y: Math.round(a.y + (a.height - h) / 2), width: w, height: h };
   let rects = [];
   try { rects = avoid ? avoid() : []; } catch { /* placed in the middle */ }
@@ -82,6 +97,7 @@ function ask({ dir, title, mode = 'ask', iconDir, onShown, zoom = 1, avoid, seen
     open = null;
     ipcMain.removeListener('notice', onAnswer);
     if (!win.isDestroyed()) win.destroy();
+    if (view.made) { try { fs.rmSync(view.dir, { recursive: true, force: true }); } catch { /* the temp folder keeps it */ } }
     resolve(mode === 'view' ? true : answer);
   };
   const onAnswer = (e, answer) => { if (e.sender === win.webContents) finish(answer); };
@@ -91,7 +107,7 @@ function ask({ dir, title, mode = 'ask', iconDir, onShown, zoom = 1, avoid, seen
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('did-finish-load', () => { if (z !== 1) win.webContents.setZoomFactor(z); });
   const prior = Number(seen) > 0 ? Math.floor(Number(seen)) : 0;
-  win.loadFile(path.join(dir, 'notice.html'), { query: prior ? { mode, seen: String(prior) } : { mode } });
+  win.loadFile(path.join(view.dir, 'notice.html'), { query: prior ? { mode, seen: String(prior) } : { mode } });
   win.once('ready-to-show', async () => {
     win.showInactive();                        // never takes the keyboard from the game by itself
     if (onShown) { try { onShown(); } catch { /* the notice still works */ } }

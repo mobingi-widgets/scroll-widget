@@ -29,10 +29,10 @@ const standIns = {
   notify: (m) => { said.push(m.text); return true; }, toPage: () => {}, pushProblems: () => {},
   updateVisibility: () => { visible = !(cfg.show === 'hidden' || ng.inner.hidden()); },
   trayUi: { update: (s) => tray.push(s) }, game, noGame, setMode: (on) => modes.push(on ? 'app' : 'overlay'),
-  nogameLib: require(path.join(dir, 'nogame.js')), SHOT: false, DEMO: false, process,
+  nogameLib: require(path.join(dir, 'src', 'shared', 'nogame.js')), SHOT: false, DEMO: false, process,
   setTimeout, clearTimeout, uui: null, lock: null, toast: null, autostart: null,
 };
-const { api } = load(path.join(dir, 'main.js'), ['APP_AFTER_MS', 'STALE_SEC', 'ago', 'problems', 'updateTray', 'checkMode', 'autoHidden', 'hiddenNow', 'makeNoGame',
+const { api } = load(path.join(dir, 'src', 'main.js'), ['APP_AFTER_MS', 'STALE_SEC', 'ago', 'problems', 'updateTray', 'checkMode', 'autoHidden', 'hiddenNow', 'makeNoGame',
   'manualRefresh', 'refreshNow', 'setShow', 'trayClick', 'menuAct'], standIns);
 ng.inner = api.makeNoGame(false);
 const look = (found, ms) => { game.found = found; const end = clock.t + ms; for (; clock.t <= end; clock.t += 500) api.checkMode(); clock.t = end; };
@@ -82,10 +82,12 @@ try {
   api.trayClick();
   check('...tray click: shown again', cfg.show === 'always' && visible);
   // the update restart while hidden: quiet (the flag), else as before ('.')
-  const src = fs.readFileSync(path.join(dir, 'main.js'), 'utf8');
+  const src = fs.readFileSync(path.join(dir, 'src', 'main.js'), 'utf8');
   check('the update restart: ". --autostart" while hidden for want of a game, else "."', /launchArgs: autoHidden\(\) \? `\. \$\{autostartLib\.FLAG\}` : '\.'/.test(src));
   check('a second start from the login (--autostart) changes nothing', /app\.on\('second-instance', \(_e, argv\) => \{ if \(!autostartLib\.quiet\(argv\)\)/.test(src));
-  check('the login item: electron.exe with this folder - bare (Electron quotes it), only without .git', /installed: \(\) => !fs\.existsSync\(path\.join\(__dirname, '\.git'\)\)/.test(src) && /args: \(\) => \[__dirname\]/.test(src));
+  check('the login item: electron.exe with the program folder (the one above src/) - bare (Electron quotes it), only without .git',
+    /installed: \(\) => !fs\.existsSync\(path\.join\(ROOT, '\.git'\)\)/.test(src) && /args: \(\) => \[ROOT\]/.test(src)
+    && /const ROOT = path\.join\(__dirname, '\.\.'\);/.test(src));
 } catch (e) {
   console.log('FAIL exception', e && e.stack);
   ok = false;

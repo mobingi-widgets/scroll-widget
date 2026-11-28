@@ -18,8 +18,8 @@ app.whenReady().then(async () => {
     fs.mkdirSync(out, { recursive: true });
     const open = async (d) => {
       const w = new BrowserWindow({ width: 420, height: 260, show: false, frame: false, transparent: true, backgroundColor: '#00000000',
-        webPreferences: { offscreen: true, preload: path.join(d, 'toast-preload.js'), contextIsolation: true, sandbox: true } });
-      await w.loadFile(path.join(d, 'toast.html'));
+        webPreferences: { offscreen: true, preload: path.join(d, 'src', 'shared', 'toast-preload.js'), contextIsolation: true, sandbox: true } });
+      await w.loadFile(path.join(d, 'src', 'shared', 'toast.html'));
       return w;
     };
     const win = await open(dir);
@@ -37,7 +37,7 @@ app.whenReady().then(async () => {
     };
 
     // the real hitpoll.js over the page's reports: is the window taking the mouse with the cursor on the toast?
-    const hitpoll = require(path.join(dir, 'hitpoll.js'));
+    const hitpoll = require(path.join(dir, 'src', 'shared', 'hitpoll.js'));
     let cursor = { x: -100, y: -100 };
     let taking = false;
     const fakeWin = { isDestroyed: () => false, isVisible: () => true, getBounds: () => ({ x: 0, y: 0, width: 420, height: 260 }) };

@@ -1,9 +1,10 @@
 // test/lib/extract.js - pull named top-level functions / consts out of a source file and run them with
 // stand-ins: for main.js parts that cannot be required (requiring main.js starts the app). Brace counting that
 // skips strings, template text and comments (a const statement's own comments must not hold an apostrophe).
-//   const { api } = load(path.join(ROOT, 'main.js'), ['menuItems', ...], { cfg, toast, ... })
+//   const { api } = load(path.join(ROOT, 'src', 'main.js'), ['menuItems', ...], { cfg, toast, ... })
 'use strict';
 const fs = require('fs');
+const path = require('path');
 
 function blockEnd(src, open) {
   let depth = 0;
@@ -52,7 +53,10 @@ const OPTIONAL = { autostart: null, noGame: null };
 function load(file, names, standIns = {}) {
   const src = fs.readFileSync(file, 'utf8');
   const body = names.map((n) => piece(src, n)).join('\n\n');
-  const all = { ...OPTIONAL, ...standIns };
+  // where the file is, as it would see it (main.js: src/; ROOT the program, ASSETS its icons and sounds)
+  const where = { __dirname: path.dirname(file), ROOT: path.join(path.dirname(file), '..'), ASSETS: path.join(path.dirname(file), '..', 'assets') };
+  const all = { ...where, ...OPTIONAL, ...standIns };
+  for (const n of names) if (n in where && !(n in standIns)) delete all[n];
   for (const n of names) if (n in OPTIONAL && !(n in standIns)) delete all[n];   // extracted itself: not also a parameter
   const keys = Object.keys(all);
   // eslint-disable-next-line no-new-func

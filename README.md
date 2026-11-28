@@ -11,7 +11,7 @@
 
 ## 원칙
 
-- **게임에는 무료 조회 명령만 보냅니다.** 허용 목록은 `game.py`의 `FREE_READS`이고, 그 밖의 명령(특히 정령의 날개를 쓰는 `execute_*`)은 코드에서 거부합니다.
+- **게임에는 무료 조회 명령만 보냅니다.** 허용 목록은 `src/game.py`의 `FREE_READS`이고, 그 밖의 명령(특히 정령의 날개를 쓰는 `execute_*`)은 코드에서 거부합니다.
 - 게임의 키보드 포커스를 가져가지 않고, 클릭은 게임으로 통과합니다(버튼·배지 위에서만 클릭을 받음).
 - 게임 파일·메모리·통신은 건드리지 않습니다. 게임이 제공하는 AI 에이전트 CLI로 조회만 합니다.
 
@@ -122,13 +122,13 @@
 
 ## 데이터
 
-개인 데이터는 프로그램 폴더 밖(또는 `data/`)에 둡니다 — `paths.py` 참고. 이 폴더를 그대로 남에게 줘도 됩니다.
+개인 데이터는 프로그램 폴더 밖(또는 `data/`)에 둡니다 — `src/paths.py` 참고. 이 폴더를 그대로 남에게 줘도 됩니다.
 찾는 순서: 환경 변수 `MOBINGI_WIDGET_DATA` → `%APPDATA%\mobingi-scroll-widget\data-dir.txt`에 적힌 폴더(한 줄; 설치본이 다른 곳의
 기록을 계속 쓰게 할 때 — 업데이트해도 유지) → 작업 공간 안이면 `runs/` → 프로그램 폴더의 `data/`.
 
 | 파일 | 내용 |
 |---|---|
-| `catalog.json` (프로그램) | 납품 품목 카탈로그 — 게임 데이터, 개인 정보 없음 |
+| `src/catalog.json` (프로그램) | 납품 품목 카탈로그 — 게임 데이터, 개인 정보 없음 |
 | `weekly_scrolls.json` | 캐릭터별 주간 기록 (형식 v2) |
 | `weekly_scrolls_widget.json` | 생활 스킬 경험치 누적 |
 | `wings_daily.json` | 캐릭터별 정령의 날개 일별 증감 |
@@ -136,18 +136,18 @@
 | `widget_notify.jsonl` | 알림 대기열 |
 | `loot_<아이템>.jsonl` | (있으면 읽기만) 던전 판별 수확 기록 |
 
-## 에이전트 창구 (`widget.py`)
+## 에이전트 창구 (`src/widget.py`)
 
 AI 에이전트가 사용자와 같이 일하면서 위젯이 놓친 기록을 고치거나 알림을 띄우는 명령줄 도구입니다. 게임은 부르지 않습니다.
 
 ```
-python widget.py commands            # 명령 목록
-python widget.py doc <명령>          # 한 명령의 설명
-python widget.py status              # 요약
-python widget.py set <캐릭터> <품목> <bought|used|reported> <n> --by <이름>
-python widget.py notify "문장" --level info|warn|action
-python widget.py catalog             # 품목 카탈로그 보기 / item·remove·not-storable·town-abbr 로 고치기
-python widget.py undo                # 마지막 손 보정 되돌리기
+python src/widget.py commands            # 명령 목록
+python src/widget.py doc <명령>          # 한 명령의 설명
+python src/widget.py status              # 요약
+python src/widget.py set <캐릭터> <품목> <bought|used|reported> <n> --by <이름>
+python src/widget.py notify "문장" --level info|warn|action
+python src/widget.py catalog             # 품목 카탈로그 보기 / item·remove·not-storable·town-abbr 로 고치기
+python src/widget.py undo                # 마지막 손 보정 되돌리기
 ```
 
 ## 업데이트
@@ -178,5 +178,11 @@ python widget.py undo                # 마지막 손 보정 되돌리기
 
 | 폴더 | 하는 일 |
 |---|---|
-| `test/` | 시험: `npm test` — 단위 시험(node · python)과 화면 밖 페이지 시험(Electron, 화면에 창을 띄우지 않음). 배포본에 들어가지 않음 |
+| `package.json` | 버전, 시작 파일(`src/main.js`) |
+| `src/` | 위젯 본체: `main.js`(창·배치·메뉴) · `renderer.js` `index.html` `style.css`(화면) · `tip.*`(툴팁) · `notice.html`(이용 안내) · `preload.js`, 게임 읽기(`feed.py` · `game.py`), 기록(`weekly_scrolls.py` · `ledger.py` · `paths.py`), 카탈로그(`catalog.json` · `catalog.py`), 에이전트 창구(`widget.py`) |
+| `src/shared/` | 망호 스캐너와 같은 파일(바이트까지 같음 — 고치면 둘 다): 업데이트(`updater.js` · `apply-update.ps1` · `update-*`), 이용 안내(`consent.js` · `notice.js` · `notice.css`), ☰ 메뉴(`ctxmenu.js` · `menu-*`), 알림 창(`toast-*`), ☰ 끌기 위치 옮기기(`dock.js` · `guide-*`), 마우스 판정(`hitpoll.js` · `hitrects.js`), 잠금(`lock*`), 트레이 상태, 게임 창이 없을 때(`nogame.js`), 부팅 시 자동 실행(`autostart.js`) |
+| `assets/` | 트레이 아이콘 |
+| `icons/` | 생활 스킬 그림(사용자가 만듦, 배포본에 없음)과 그 도구 `extract_glyphs.py` — 업데이트해도 그대로 |
+| `test/` | 시험: `npm test` — 단위 시험(node · python)과 화면 밖 페이지 시험(Electron, 화면에 창을 띄우지 않음; 실제 프로그램의 모든 창도 화면 밖에서 열어 봄). 배포본에 들어가지 않음.
+  업데이트 시험: `npm run test:update -- --from <옛 판 full.zip> [--rollback-from <옛 판 full.zip>]` — 옛 판이 자기 업데이터로 이 트리를 설치하고 다시 시작하는지(되돌리기 포함), 임시 폴더에서 모든 것을 격리해서(설정·창·네트워크) |
 | `scripts/build_dist.py` | 배포본 만들기: `python scripts/build_dist.py`, 릴리스 파일은 `--release`(먼저 `npm test`, 실패하면 만들지 않음). 배포본에 들어가지 않음 |

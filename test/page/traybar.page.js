@@ -19,7 +19,7 @@ app.whenReady().then(async () => {
     // ---- tray-state.js
     const set = [];
     const tray = { setImage: () => set.push('img'), setToolTip: (t) => set.push(t), isDestroyed: () => false };
-    const ui = require(path.join(dir, 'tray-state.js')).create({ tray, dir, name: '망호 스캐너' });
+    const ui = require(path.join(dir, 'src', 'shared', 'tray-state.js')).create({ tray, dir, name: '망호 스캐너' });
     ui.update({ hidden: true, why: '게임 없음', problem: '' });
     check('tray: hidden for want of a game -> "숨김 (게임 없음)" / 클릭: 보이기', set[1] === '망호 스캐너 · 숨김 (게임 없음)\n클릭: 보이기', JSON.stringify(set));
     ui.update({ hidden: true, why: '게임 없음', problem: '' });
@@ -29,15 +29,15 @@ app.whenReady().then(async () => {
     ui.update({ hidden: false, problem: '스캔 실패 2회 연속' });
     check('shown with a problem: as before', set[5] === '망호 스캐너 · ⚠ 스캔 실패 2회 연속\n클릭: 숨기기');
     // ---- the bar button in its states, drawn in the real menu page
-    const lib = require(path.join(dir, 'autostart.js'));
+    const lib = require(path.join(dir, 'src', 'shared', 'autostart.js'));
     const mk = (installed, run) => lib.create({ name: 'mobingi-x', installed: () => installed, exe: () => 'C:\\x\\x.exe', want: () => true, save: () => {},
       login: { get: () => ({ launchItems: run ? [{ name: 'mobingi-x', path: 'C:\\x\\x.exe', args: ['--autostart'], enabled: run.enabled }] : [] }), set: () => {} } });
     const states = { on: mk(true, { enabled: true }), off: mk(true, null), winoff: mk(true, { enabled: false }), source: mk(false, null) };
-    const ctx = require(path.join(dir, 'ctxmenu.js'));
+    const ctx = require(path.join(dir, 'src', 'shared', 'ctxmenu.js'));
     const w = new BrowserWindow({ width: 450, height: 200, show: false, frame: false, transparent: true,
       webPreferences: { offscreen: true, preload: path.join(__dirname, '..', 'lib', 'menu-preload.js'), contextIsolation: true } });
     ipcMain.on('h', () => {});
-    await w.loadFile(path.join(dir, 'menu.html'));
+    await w.loadFile(path.join(dir, 'src', 'shared', 'menu.html'));
     const look = {};
     for (const [k, a] of Object.entries(states)) {
       const items = [{ type: 'bar', end: { id: 'quit', icon: 'power', text: '종료', label: '종료' }, buttons: [{ id: 'notice', icon: 'info', label: '이용 안내 보기' }, a.button()] }];

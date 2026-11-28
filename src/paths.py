@@ -17,7 +17,8 @@ from __future__ import annotations
 
 import os
 
-PROGRAM = os.path.dirname(os.path.abspath(__file__))
+# the program folder: the one above src/ (this file) - data/ sits there, and every updater keeps it in place
+PROGRAM = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 POINTER = os.path.join(os.environ.get("APPDATA", ""), "mobingi-scroll-widget", "data-dir.txt")
 
 

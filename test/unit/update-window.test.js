@@ -7,7 +7,7 @@ const Module = require('module');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { ROOT: scanDir } = require('../lib/env');   // this app only
+const { ROOT: scanDir, SRC } = require('../lib/env');   // this app only (SRC: its notice.html)
 
 let ok = true;
 const check = (what, cond, extra = '') => { console.log(`${cond ? 'ok  ' : 'FAIL'} ${what}${extra ? `  (${extra})` : ''}`); if (!cond) ok = false; };
@@ -49,7 +49,7 @@ const realLoad = Module._load;
 Module._load = function (req, ...rest) { return req === 'electron' ? fakeElectron : realLoad.call(this, req, ...rest); };
 
 // ---- dock.clearOf
-const { clearOf } = require(path.join(scanDir, 'dock.js'));
+const { clearOf } = require(path.join(scanDir, 'src', 'shared', 'dock.js'));
 const A = { x: 0, y: 0, width: 1920, height: 1040 };
 const want = { x: 760, y: 200, width: 400, height: 220 };
 check('clearOf: nothing in the way -> where it would go', JSON.stringify(clearOf(want, [{ x: 1600, y: 0, width: 300, height: 900 }], A)) === JSON.stringify(want));
@@ -61,7 +61,7 @@ r = clearOf(want, [{ x: 0, y: 0, width: 1920, height: 1040 }], A);
 check('clearOf: nowhere clear -> where it would go', JSON.stringify(r) === JSON.stringify(want));
 
 // ---- the real update-ui.js window
-const ui = require(path.join(scanDir, 'update-ui.js'));
+const ui = require(path.join(scanDir, 'src', 'shared', 'update-ui.js'));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'updz-'));
 const overlay = { x: 1300, y: 60, width: 300, height: 800 };
 let game = { x: 0, y: 0, width: 1600, height: 900 };
@@ -111,9 +111,9 @@ check('keepTop: hidden -> nothing', uui.keepTop() === false);
 upd.visible = true;
 
 // ---- consent: opens clear of the overlays, at their level, kept above them
-const consent = require(path.join(scanDir, 'consent.js'));
+const consent = require(path.join(scanDir, 'src', 'shared', 'consent.js'));
 const notice = { x: 680, y: 170, width: 560, height: 700 };       // where it opens (1920 x 1040, zoom 1)
-const p = consent.ask({ dir: scanDir, title: '망호 스캐너 이용 안내', mode: 'view', zoom: 1, avoid: () => [{ x: 1100, y: 0, width: 300, height: 1040 }] });
+const p = consent.ask({ dir: SRC, title: '망호 스캐너 이용 안내', mode: 'view', zoom: 1, avoid: () => [{ x: 1100, y: 0, width: 300, height: 1040 }] });
 const nw = windows[windows.length - 1];
 nw.name = 'notice';
 nw.emit('ready-to-show');
@@ -131,7 +131,7 @@ for (const [app, dir] of [['widget', scanDir]]) {
   const toastWin = new FakeWin({ title: 'toast' });
   const stand = { win: ov, appMode: false, ctx: { isOpen: () => false }, tipWin: tip, toast: { window: () => toastWin },
     uui, consent, authorsUi: { keepTop: () => false } };
-  const { api } = load(path.join(dir, 'main.js'), ['raise'], stand);
+  const { api } = load(path.join(dir, 'src', 'main.js'), ['raise'], stand);
   order.length = 0;
   api.raise();
   check(`${app} raise(): overlay, then the update window, then the notice above it`, JSON.stringify(order) === '["overlay","update","notice"]', JSON.stringify(order));
@@ -147,7 +147,7 @@ nw.visible = false;
 for (const [app, dir] of [['widget', scanDir]]) {
   const ov = new FakeWin({ title: 'overlay' }); ov.visible = true;
   const tip = new FakeWin({ title: 'tooltip' }); tip.visible = true;
-  const { api } = load(path.join(dir, 'main.js'), ['raise'], { win: ov, appMode: false, ctx: { isOpen: () => false }, tipWin: tip,
+  const { api } = load(path.join(dir, 'src', 'main.js'), ['raise'], { win: ov, appMode: false, ctx: { isOpen: () => false }, tipWin: tip,
     toast: { window: () => null }, uui, consent, authorsUi: { keepTop: () => false } });
   order.length = 0;
   api.raise();
@@ -159,9 +159,9 @@ p.then(() => {});
 // what changed since) - from the update window (update-ui.js -> consent.ask) and consent.ask itself
 const tick = () => new Promise((r) => setTimeout(r, 10));
 (async () => {
-  const ED = consent.noticeVersion(scanDir);
-  const updater = require(path.join(scanDir, 'updater.js'));
-  updater.fetchNotice = async () => scanDir;                 // (the new version's notice, verified and laid out)
+  const ED = consent.noticeVersion(SRC);
+  const updater = require(path.join(scanDir, 'src', 'shared', 'updater.js'));
+  updater.fetchNotice = async () => SRC;                 // (the new version's notice, verified and laid out)
   cfg.notice = ED - 1;
   const before = windows.length;
   Object.assign(uui.state(), { phase: 'available', info: { available: true, version: '9.9.9', notes: '- x', notice: { version: ED } } });
@@ -173,7 +173,7 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   un.close();
   await tick();
   check('...closed (not agreed): this version kept', uui.state().phase === 'kept', uui.state().phase);
-  const asked = (opts) => { consent.ask({ dir: scanDir, title: 'x', ...opts }); const w = windows[windows.length - 1]; const r = q(w); w.close(); return r; };
+  const asked = (opts) => { consent.ask({ dir: SRC, title: 'x', ...opts }); const w = windows[windows.length - 1]; const r = q(w); w.close(); return r; };
   let r = asked({ mode: 'ask', seen: 3.7 });
   check('consent.ask seen 3.7 -> ?seen=3', r.mode === 'ask' && r.seen === '3', JSON.stringify(r));
   for (const seen of [undefined, 0, -1, 'x']) {

@@ -40,11 +40,12 @@ import zipfile
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 HERE = os.path.dirname(SCRIPTS)            # the app (this file is in its scripts/)
 WORKSPACE = os.path.dirname(HERE)
-sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(HERE, "src"))
 import paths  # noqa: E402
 
 NAME = "주간 납품 위젯"
 APP_ID = "scroll-widget"
+SIBLING = "mangho-scanner"           # the other overlay: src/shared/ must match it
 INCLUDE_EXT = {".js", ".html", ".css", ".py", ".json", ".md", ".bat", ".png", ".ps1"}
 SKIP_DIRS = {"node_modules", "data", "__pycache__", ".git", "test", "scripts"}   # tests and dev tools never ship
 SKIP_FILES = {"package-lock.json",
@@ -71,7 +72,7 @@ def changelog_notes(ver):
 
 def notice_version():
     """<meta name="notice-version" content="N"> in notice.html - the one place the notice's version is set."""
-    m = re.search(r'<meta\s+name="notice-version"\s+content="(\d+)"', open(os.path.join(HERE, "notice.html"), encoding="utf-8").read())
+    m = re.search(r'<meta\s+name="notice-version"\s+content="(\d+)"', open(os.path.join(HERE, "src", "notice.html"), encoding="utf-8").read())
     if not m:
         raise SystemExit("notice.html에 notice-version이 없음")
     return int(m.group(1))
@@ -158,10 +159,45 @@ def electron_selftest(files):
     js = ("const u = require(process.argv[1]), fs = require('fs'), p = require('path');"
           "for (const f of process.argv.slice(2)) u.verifyMinisig(fs.readFileSync(f), fs.readFileSync(f + '.minisig', 'utf8'), p.basename(f));"
           "console.log('verified ' + (process.argv.length - 2) + ' in electron ' + process.versions.electron)")
-    run = subprocess.run([exe, "-e", js, os.path.join(HERE, "updater.js"), *files], capture_output=True, text=True,
+    run = subprocess.run([exe, "-e", js, os.path.join(HERE, "src", "shared", "updater.js"), *files], capture_output=True, text=True,
                          encoding="utf-8", env=dict(os.environ, ELECTRON_RUN_AS_NODE="1"))
     out = (run.stdout + run.stderr).strip()
     return run.returncode == 0 and "verified" in run.stdout, out[-800:]
+
+
+def shared_diff():
+    """src/shared/ holds the copies every overlay shares: byte for byte the same as the other program's (the
+    workspace keeps both side by side). -> the differences, [] when none; None without the other program beside
+    this one (nothing to compare)."""
+    other = os.path.join(WORKSPACE, SIBLING, "src", "shared")
+    if not os.path.isdir(other):
+        return None
+
+    def listing(top):
+        out = {}
+        for base, _dirs, names in os.walk(top):
+            for n in names:
+                full = os.path.join(base, n)
+                with open(full, "rb") as fh:
+                    out[os.path.relpath(full, top).replace(os.sep, "/")] = fh.read()
+        return out
+
+    a, b = listing(os.path.join(HERE, "src", "shared")), listing(other)
+    return ["%s: %s" % (n, "여기만 있음" if n not in b else "저쪽만 있음" if n not in a else "내용 다름")
+            for n in sorted(set(a) | set(b)) if a.get(n) != b.get(n)]
+
+
+def not_ascii():
+    """.bat (cmd) and .ps1 (Windows PowerShell 5.1) are read in the system code page: ASCII only, wherever they are."""
+    bad = []
+    for base, dirs, names in os.walk(HERE):
+        dirs[:] = [d for d in dirs if d not in ("node_modules", "dist", "out") and not d.startswith(".")]
+        for n in names:
+            if n.endswith((".bat", ".ps1")):
+                with open(os.path.join(base, n), "rb") as fh:
+                    if any(b > 127 for b in fh.read()):
+                        bad.append(os.path.relpath(os.path.join(base, n), HERE))
+    return bad
 
 
 def run_tests():
@@ -174,6 +210,16 @@ def run_tests():
 def main(argv):
     release = "--release" in argv
     out_root = argv[argv.index("--out") + 1] if "--out" in argv else os.path.join(WORKSPACE, "dist")
+    bad = not_ascii()
+    if bad:
+        print("ASCII가 아닌 글자가 있어 만들지 않음: %s" % ", ".join(bad))
+        return 1
+    diff = shared_diff()
+    if diff:
+        print("src/shared/가 %s의 것과 달라 만들지 않음 (공통 사본은 두 프로그램에 똑같이):\n  %s" % (SIBLING, "\n  ".join(diff)))
+        return 1
+    if diff is None:
+        print("  (src/shared/: 옆에 %s가 없어 비교하지 않음)" % SIBLING)
     picked = list(files())
     bad = check(picked)
     if bad:
@@ -210,7 +256,7 @@ def main(argv):
     # the notice (이용 안내) of this version: shown before the download when its version went up
     nver = notice_version()
     notice = os.path.join(rel_dir, "%s-notice-%d.html" % (APP_ID, nver))
-    with open(os.path.join(HERE, "notice.html"), "rb") as src, open(notice, "wb") as dst:
+    with open(os.path.join(HERE, "src", "notice.html"), "rb") as src, open(notice, "wb") as dst:
         dst.write(src.read())
     feed = {
         "schema": 1, "app": APP_ID, "version": ver,

@@ -14,16 +14,20 @@ const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, shell } = 
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
-const dockLib = require('./dock');
-const ctxLib = require('./ctxmenu');
-const updater = require('./updater');
-const consent = require('./consent');
-const toastLib = require('./toast-ui');
-const hitpoll = require('./hitpoll');
-const lockLib = require('./lock');
-const trayState = require('./tray-state');
-const nogameLib = require('./nogame');
-const autostartLib = require('./autostart');
+// the program's folders: src/ (this file and the program's own pages), src/shared/ (the copies every overlay
+// shares), assets/ (icons, sounds), the program root above them (package.json, docs/, node_modules)
+const ROOT = path.join(__dirname, '..');
+const ASSETS = path.join(ROOT, 'assets');
+const dockLib = require('./shared/dock');
+const ctxLib = require('./shared/ctxmenu');
+const updater = require('./shared/updater');
+const consent = require('./shared/consent');
+const toastLib = require('./shared/toast-ui');
+const hitpoll = require('./shared/hitpoll');
+const lockLib = require('./shared/lock');
+const trayState = require('./shared/tray-state');
+const nogameLib = require('./shared/nogame');
+const autostartLib = require('./shared/autostart');
 
 // The notice (이용 안내, notice.html - its <meta name="notice-version"> is the version): nothing
 // starts - no game reads, no window tracking, no update check - until it is agreed to.
@@ -35,20 +39,20 @@ let starting = true;                   // the notice may be the only window for 
 // steps, after Scouter Lite's flow) on updater.js (signed, strictly newer only). Never installs
 // or restarts by itself (user, 2026-11-27: they are in the game). Installing swaps the program
 // files; node_modules, data/ and icons/ stay. A git checkout (the developer's copy) only reports.
-const VERSION = require('./package.json').version;
-const stageRoot = () => path.join(path.dirname(__dirname), '.scroll-widget-update');
+const VERSION = require('../package.json').version;
+const stageRoot = () => path.join(path.dirname(ROOT), '.scroll-widget-update');
 let uui = null;
 function makeUpdateUi() {
-  return require('./update-ui').create({
-    dir: __dirname, repo: 'scroll-widget', app: 'scroll-widget', version: VERSION, title: '주간 납품 위젯',
+  return require('./shared/update-ui').create({
+    dir: ASSETS, repo: 'scroll-widget', app: 'scroll-widget', version: VERSION, title: '주간 납품 위젯',
     userData: app.getPath('userData'),
-    canInstall: () => !fs.existsSync(path.join(__dirname, '.git')),
+    canInstall: () => !fs.existsSync(path.join(ROOT, '.git')),
     stageRoot,
     previousDir: () => path.join(stageRoot(), 'previous'),
     installOpts: () => ({
-      appDir: __dirname, keep: ['node_modules', 'data', 'icons', '.git', '.gitignore', '.gitattributes'],
+      appDir: ROOT, keep: ['node_modules', 'data', 'icons', '.git', '.gitignore', '.gitattributes'],
       // hidden for want of a game: the restart stays hidden too (a quiet start) - no window popping up at night
-      launch: path.join(__dirname, 'node_modules', 'electron', 'dist', 'electron.exe'), launchArgs: autoHidden() ? `. ${autostartLib.FLAG}` : '.', launchCwd: __dirname,
+      launch: path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), launchArgs: autoHidden() ? `. ${autostartLib.FLAG}` : '.', launchCwd: ROOT,
     }),
     cfg: () => cfg, saveCfg, near: () => gameRectDip(), avoid: overlayRects,
     // short messages go to the toast window (if toasts are off: dropped, as before); the rest to the page
@@ -569,7 +573,7 @@ function onDrop(r) {
 function startFeed() {
   const py = process.env.MOBINGI_PYTHON || 'python';
   feed = spawn(py, ['-u', path.join(__dirname, 'feed.py'), '--owner-pid', String(process.pid)], {
-    cwd: __dirname,
+    cwd: ROOT,
     windowsHide: true,
     env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
   });
@@ -665,13 +669,13 @@ async function demoShots() {
   };
   // a menu as it would open at this zoom, drawn offscreen (ctxmenu.shot): no menu at the pointer and
   // no click catcher over the user's screen (user 2026-11-27); no pointer, so no hover in it either
-  const saveMenu = async (items, name) => fs.writeFileSync(path.join(DEMO, `${name}.png`), await ctxLib.shot({ dir: __dirname, items, zoom }));
+  const saveMenu = async (items, name) => fs.writeFileSync(path.join(DEMO, `${name}.png`), await ctxLib.shot({ items, zoom }));
   const js = (code) => win.webContents.executeJavaScript(code);
   // start once the page has loaded (its feed handler listens): a message sent before that is lost
   if (win.webContents.isLoading()) await new Promise((r) => win.webContents.once('did-finish-load', r));
   const hasSnap = () => js("typeof snap !== 'undefined' && !!snap").catch(() => false);
   fs.mkdirSync(DEMO, { recursive: true });
-  const fixture = process.env.MOBINGI_WIDGET_FIXTURE || path.join(__dirname, 'docs', 'demo-snapshot.json');
+  const fixture = process.env.MOBINGI_WIDGET_FIXTURE || path.join(ROOT, 'docs', 'demo-snapshot.json');
   const snap = JSON.parse(fs.readFileSync(fixture, 'utf8'));
   await js("document.body.classList.add('demo')");
   saveCfg({ width: DEFAULTS.width + 24, align: 'left' });   // the demo's padding (marks) on top, less the strip it holds
@@ -719,7 +723,7 @@ async function demoShots() {
   await saveMenu(menuItems(), 'menu');
   if (ctx) console.warn('demo: a real menu (and its click catcher) was opened');
   process.env.NOTICE_SHOT = path.join(DEMO, 'notice.png');
-  await consent.ask({ dir: __dirname, title: NOTICE_TITLE });
+  await consent.ask({ dir: __dirname, iconDir: ASSETS, title: NOTICE_TITLE });
   app.quit();
 }
 
@@ -846,7 +850,7 @@ function menuAct(id, opt) {
     case 'text': saveCfg({ text: stepped(opt, TEXT, cfg.text) }); toPage(windowState()); return true;
     case 'lockshrink': saveCfg({ lockShrink: opt === 'on' }); place(); toPage(windowState()); return true;
     case 'opacity': setOpacity(Number(opt)); return true;
-    case 'notice': consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: 'view', zoom: baseZoom, avoid: overlayRects }); return false;
+    case 'notice': consent.ask({ dir: __dirname, iconDir: ASSETS, title: NOTICE_TITLE, mode: 'view', zoom: baseZoom, avoid: overlayRects }); return false;
     case 'quit': app.quit(); return false;
     default: return false;
   }
@@ -862,7 +866,7 @@ function popupMenu() {
   if (!win || win.isDestroyed()) return;
   tipAnchor = null;
   placeTip();
-  if (!ctx) ctx = ctxLib.create({ dir: __dirname });
+  if (!ctx) ctx = ctxLib.create();
   const p = screen.getCursorScreenPoint();
   toPage({ type: 'menu', open: true });
   ctx.open({
@@ -920,7 +924,7 @@ function createWindow() {
     skipTaskbar: true,
     alwaysOnTop: true,
     title: '주간 납품',
-    icon: path.join(__dirname, 'tray@2x.png'),   // taskbar, in window-app mode
+    icon: path.join(ASSETS, 'tray@2x.png'),   // taskbar, in window-app mode
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -954,8 +958,8 @@ function createWindow() {
 }
 
 function createTray() {
-  tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'tray.png')));
-  trayUi = trayState.create({ tray, dir: __dirname, name: '주간 납품 위젯' });
+  tray = new Tray(nativeImage.createFromPath(path.join(ASSETS, 'tray.png')));
+  trayUi = trayState.create({ tray, dir: ASSETS, name: '주간 납품 위젯' });
   updateTray();
   tray.on('click', trayClick);
   tray.on('right-click', () => tray.popUpContextMenu(buildMenu()));
@@ -1074,11 +1078,11 @@ if (!app.requestSingleInstanceLock()) {
     if (!SHOT && !DEMO && !FAKE_GAME && (cfg.notice || 0) < noticeV) {
       // first run, or this version's notice is newer than the agreed one (e.g. files put over
       // by hand): ask before anything starts; with the old version kept aside, offer going back
-      const guard = !fs.existsSync(path.join(__dirname, '.git')) && uui.hasPrevious();
+      const guard = !fs.existsSync(path.join(ROOT, '.git')) && uui.hasPrevious();
       // started fine (an update waiting on update-ok.json must not roll back while the notice is read)
       const onShown = () => updater.markHealthy(path.join(app.getPath('userData'), 'update-ok.json'), VERSION);
       // seen: an agreement to an older edition -> what changed since is marked, 달라진 점만 보기 (notice.js)
-      const answer = await consent.ask({ dir: __dirname, title: NOTICE_TITLE, mode: guard ? 'guard' : 'ask', onShown, zoom: cfg.scale / 100, seen: cfg.notice || 0 });
+      const answer = await consent.ask({ dir: __dirname, iconDir: ASSETS, title: NOTICE_TITLE, mode: guard ? 'guard' : 'ask', onShown, zoom: cfg.scale / 100, seen: cfg.notice || 0 });
       if (answer === 'rollback') { uui.rollback(); return; }
       if (answer !== true) { app.quit(); return; }
       saveCfg({ notice: noticeV, noticeAt: new Date().toISOString(), noticeDeclined: null });
@@ -1089,8 +1093,8 @@ if (!app.requestSingleInstanceLock()) {
     // well, the started program saw the quotes as part of the path and could not find the app. Every start
     // puts the entry right.
     autostart = autostartLib.create({
-      name: 'mobingi-scroll-widget', installed: () => !fs.existsSync(path.join(__dirname, '.git')),
-      exe: () => process.execPath, args: () => [__dirname],
+      name: 'mobingi-scroll-widget', installed: () => !fs.existsSync(path.join(ROOT, '.git')),
+      exe: () => process.execPath, args: () => [ROOT],
       want: () => cfg.autostart === true, save: (on) => saveCfg({ autostart: on }),
       onFail: (_kind, text) => bubble(text),     // a write that did not stick (read back)
       login: { get: (o) => app.getLoginItemSettings(o), set: (o) => app.setLoginItemSettings(o) },
@@ -1104,7 +1108,7 @@ if (!app.requestSingleInstanceLock()) {
     createWindow();
     starting = false;                  // from here, closing the last window quits
     toast = toastLib.create({
-      dir: __dirname, title: '주간 납품 알림', source: '위젯',
+      title: '주간 납품 알림', source: '위젯',
       settings: () => cfg.toast, save: (p) => saveCfg({ toast: { ...cfg.toast, ...p } }),
       gameRect: gameRectDip, gameVisible, zoom: () => baseZoom, always: !!SHOT,
     });
@@ -1160,7 +1164,7 @@ if (!app.requestSingleInstanceLock()) {
     if (!SHOT) {
       uui.start();
       setTimeout(() => uui.afterStart(), 4000);      // "x.y.z로 업데이트됨" / "되돌렸습니다" once the toasts are up
-      if (!fs.existsSync(path.join(__dirname, '.git'))) setTimeout(() => updater.cleanup(stageRoot(), VERSION), 90 * 1000);
+      if (!fs.existsSync(path.join(ROOT, '.git'))) setTimeout(() => updater.cleanup(stageRoot(), VERSION), 90 * 1000);
     }
     setInterval(raise, 2000);
     setInterval(pushProblems, 5000);   // notices a stalled feed even when nothing arrives
