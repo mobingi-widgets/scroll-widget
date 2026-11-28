@@ -1,10 +1,22 @@
 // The 베타 받기 card (update-ui.js, user 2026-11-28): what a beta means, then 취소 or 동의하고 켜기. Closing it is 취소.
-// The window is sized to the card (its height reported, as update.js does).
+// The window is sized to the card: its whole height (cardsize.js - not the height the window's cap holds it to),
+// told whenever it changes (a zoom, a font coming late), as update.js does.
 const $ = (id) => document.getElementById(id);
 $('no').addEventListener('click', () => window.upd.act('beta', false));
 $('yes').addEventListener('click', () => window.upd.act('beta', true));
-function report() { window.upd.act('height', Math.ceil($('card').getBoundingClientRect().height)); }
+let told = 0;
+function report() {
+  const h = Math.ceil(window.cardHeight($('card')));
+  if (h === told) return;
+  told = h;
+  window.upd.act('height', h);
+}
 new ResizeObserver(report).observe($('card'));
+window.addEventListener('resize', report);
+if (document.fonts) {
+  document.fonts.ready.then(report);
+  document.fonts.addEventListener('loadingdone', report);
+}
 report();
 // a button held on the card: the window keeps the mouse until it is let go (cardwin.js)
 $('card').addEventListener('pointerdown', () => window.upd.act('hold', true));

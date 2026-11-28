@@ -94,14 +94,10 @@ function render(m) {
 // changes - not only once at render (1.9.2 / 1.6.2, user report: the bottom was cut off). The
 // page can lay out again after that first measurement: the zoom lands after the width did (other
 // line breaks), a font (the 🔒 in the notes) comes late. Measured without the cap that keeps the
-// card inside a short window (there the notes scroll), so the window can grow back.
+// card inside a short window (there the notes scroll), so the window can grow back (cardsize.js).
 let told = 0;
 function report() {
-  const card = $('card');
-  const cap = card.style.maxHeight;
-  card.style.maxHeight = 'none';
-  const h = Math.ceil(card.getBoundingClientRect().height + 14);
-  card.style.maxHeight = cap;
+  const h = Math.ceil(window.cardHeight($('card')) + 14);
   if (h === told) return;
   told = h;
   window.upd.act('height', h);

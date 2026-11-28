@@ -12,7 +12,8 @@ body { font: 400 13px/1.5 "Malgun Gothic", "Segoe UI", system-ui, sans-serif; co
   display: flex; flex-direction: column; max-height: calc(100vh - 70px); overflow-y: auto;
 }
 #card > * { flex: none; }
-#card > #notes { flex: 0 1 auto; min-height: 0; }
+#card > #notes, #card > #warn { flex: 0 1 auto; min-height: 0; }
+#card > #warn { overflow-y: auto; }      /* the 베타 받기 card's lines: as the notes, they give way, the buttons stay */
 h1 { margin: 0 0 6px; font-size: 16px; color: #fff; }
 /* the title line moves the window (it has no frame): a drag handle, its grip at the right end -
    as in the 차단·메모 window (1.9.2 / 1.6.2) */
@@ -33,8 +34,8 @@ h1.bad { color: #ff6b5e; }
   max-height: 130px; overflow-y: auto; margin: 0 0 12px; padding: 8px 10px; border-radius: 8px;
   background: rgba(255,255,255,.05); font-size: 12px; white-space: pre-wrap; color: #cfcabe;
 }
-#notes::-webkit-scrollbar { width: 8px; }
-#notes::-webkit-scrollbar-thumb { background: rgba(255,255,255,.25); border-radius: 4px; }
+#notes::-webkit-scrollbar, #warn::-webkit-scrollbar { width: 8px; }
+#notes::-webkit-scrollbar-thumb, #warn::-webkit-scrollbar-thumb { background: rgba(255,255,255,.25); border-radius: 4px; }
 #prog { margin: 4px 0 12px; }
 .bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.10); overflow: hidden; }
 #fill { display: block; height: 100%; width: 0; background: #f5a524; border-radius: 4px; transition: width .2s; }
