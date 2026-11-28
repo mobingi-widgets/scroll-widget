@@ -22,6 +22,12 @@ h1::after {
   background: radial-gradient(circle, rgba(255,255,255,.32) 1.2px, transparent 1.7px) 0 0 / 5px 5px;
 }
 h1.bad { color: #ff6b5e; }
+/* a pre-release on offer (베타 받기): a small mark after the title */
+.beta-mark { margin-left: 8px; padding: 0 7px; border-radius: 8px; font-size: 11px; line-height: 18px; font-weight: 700; color: #14171d; background: #f5a524; }
+/* the 베타 받기 card (beta.html) */
+#warn { margin: 0 0 12px; padding-left: 18px; color: #cfcabe; }
+#warn li { margin: 3px 0; }
+#warn b { color: #fff; }
 #body { margin: 0 0 10px; color: #cfcabe; white-space: pre-wrap; }
 #notes {
   max-height: 130px; overflow-y: auto; margin: 0 0 12px; padding: 8px 10px; border-radius: 8px;

@@ -28,7 +28,8 @@ const { blake2b } = require('./blake2b');
 // minisign public key (tools/release/keygen.js; key id 623EF23D2110FCB4)
 const PUBLIC_KEY = 'RWS0/BAhPfI+Yl/Y3JwoMs44HRwckwPaOsl8dwK7ceDVCJOz3Dl9NhtE';
 const ORG = 'mobingi-widgets';
-const HOSTS = new Set(['github.com', 'objects.githubusercontent.com', 'release-assets.githubusercontent.com']);
+// (api.github.com: only the release list for 베타 받기 - a pointer to a tag, never trusted beyond it)
+const HOSTS = new Set(['github.com', 'objects.githubusercontent.com', 'release-assets.githubusercontent.com', 'api.github.com']);
 const UA = 'mobingi-widgets-updater';
 const SPKI_ED25519 = Buffer.from('302a300506032b6570032100', 'hex');
 const MAX_FEED = 1 << 20;
@@ -51,11 +52,11 @@ function newer(a, b) {                 // a > b, strictly
 // ----------------------------------------------------------------- download
 
 // onProgress(received, total|0) while the body arrives (total from the final hop's Content-Length)
-async function download(url, maxBytes, onProgress) {
+async function download(url, maxBytes, onProgress, accept = 'application/octet-stream') {
   for (let hop = 0; hop < 8; hop++) {
     const u = new URL(url);
     if (u.protocol !== 'https:' || !HOSTS.has(u.hostname)) throw new Error(`허용되지 않은 주소: ${u.protocol}//${u.hostname}`);
-    const res = await fetch(u, { redirect: 'manual', headers: { 'User-Agent': UA, Accept: 'application/octet-stream' }, signal: AbortSignal.timeout(10 * 60000) });
+    const res = await fetch(u, { redirect: 'manual', headers: { 'User-Agent': UA, Accept: accept }, signal: AbortSignal.timeout(10 * 60000) });
     if ([301, 302, 303, 307, 308].includes(res.status)) {
       const loc = res.headers.get('location');
       if (!loc) throw new Error(`리다이렉트에 주소 없음 (HTTP ${res.status})`);
@@ -137,22 +138,59 @@ async function findRepo(app) {
 
 // -> { available: false, repo } | { available: true, version, notes, needFull, asset, full, page, repo }
 // repo = where the feed was found (the app remembers it: lastRepo next time, still verified every time)
-async function check({ repo, app, version, lastRepo }) {
+// beta: 베타 받기 is on (user 2026-11-28) - a newer pre-release is offered too (checkBeta); off, exactly as before
+async function check({ repo, app, version, lastRepo, beta = false }) {
+  const look = (r) => (beta ? checkBeta(r, app, version) : checkRepo(r, app, version));
   const tried = [];
   for (const r of [lastRepo, repo]) {
     if (!r || tried.includes(r)) continue;
-    try { return await checkRepo(r, app, version); } catch (e) { if (!e.notFound) throw e; }
+    try { return await look(r); } catch (e) { if (!e.notFound) throw e; }
     tried.push(r);
   }
   // not where it should be: the directory says where it is now
   let moved;
   try { moved = await findRepo(app); } catch (e) { if (e.notFound) return { available: false, none: true }; throw e; }
   if (tried.includes(moved)) return { available: false, none: true };   // nothing released yet
-  try { return await checkRepo(moved, app, version); } catch (e) { if (e.notFound) return { available: false, none: true }; throw e; }
+  try { return await look(moved); } catch (e) { if (e.notFound) return { available: false, none: true }; throw e; }
 }
 
-async function checkRepo(repo, app, version) {
-  const base = releaseUrl(repo, 'latest/download/');
+// ------------------------------------------------------------------ 베타 받기
+// A beta is a normal build released as a GitHub pre-release under its final version (vX.Y.Z); the stable feed
+// (releases/latest) never shows one, and turning it into the stable release later changes nothing in its files.
+// With 베타 받기 on, the release list (api.github.com, unsigned) only points at a tag: the newest vX.Y.Z with a
+// latest.json, drafts left out. Only if that is a pre-release is it looked at - through its own latest.json and
+// .minisig with every check the stable feed has (signature, file name, strictly newer, sizes and sha256); its
+// version must be the tag's. The list failing (60 an hour, the network) -> the stable feed, silently; the beta's
+// own feed failing its checks is an error like the stable one's.
+const API_RELEASES = (repo) => `https://api.github.com/repos/${ORG}/${repo}/releases?per_page=20`;
+// list (the API's answer) -> { tag, version, prerelease } of the newest candidate, or null
+function pickBeta(list) {
+  const cands = (Array.isArray(list) ? list : [])
+    .filter((r) => r && !r.draft && typeof r.tag_name === 'string' && /^v\d+\.\d+\.\d+$/.test(r.tag_name)
+      && Array.isArray(r.assets) && r.assets.some((a) => a && a.name === 'latest.json'))
+    .map((r) => ({ tag: r.tag_name, version: r.tag_name.slice(1), prerelease: r.prerelease === true }));
+  let best = null;
+  for (const c of cands) if (!best || newer(c.version, best.version)) best = c;
+  return best;
+}
+async function checkBeta(repo, app, version) {
+  let best = null;
+  try {
+    best = pickBeta(JSON.parse((await download(API_RELEASES(repo), MAX_FEED, null, 'application/vnd.github+json')).toString('utf8')));
+  } catch { /* no list: the stable feed */ }
+  if (best && best.prerelease && newer(best.version, version)) {
+    const r = await checkFeed(repo, app, version, `download/${best.tag}/`);
+    if (r.available && r.version !== best.version) throw tampered('베타 피드의 버전이 태그와 다름');
+    if (r.available) return { ...r, beta: true };
+  }
+  return checkRepo(repo, app, version);
+}
+
+async function checkRepo(repo, app, version) { return checkFeed(repo, app, version, 'latest/download/'); }
+
+// a release's signed feed: at = 'latest/download/' (the stable one) or 'download/<tag>/'
+async function checkFeed(repo, app, version, at) {
+  const base = releaseUrl(repo, at);
   const feed = await download(`${base}latest.json`, MAX_FEED);      // 404 -> notFound, for check()
   const sig = await download(`${base}latest.json.minisig`, 65536);
   verifyMinisig(feed, sig.toString('utf8'), 'latest.json');
@@ -312,4 +350,4 @@ function cleanup(stageRoot, version) {
   }
 }
 
-module.exports = { check, stage, fetchNotice, handOver, markHealthy, cleanup, verifyMinisig, newer, winQuote, PUBLIC_KEY };
+module.exports = { check, pickBeta, stage, fetchNotice, handOver, markHealthy, cleanup, verifyMinisig, newer, winQuote, PUBLIC_KEY };

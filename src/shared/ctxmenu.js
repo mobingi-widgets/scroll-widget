@@ -218,7 +218,9 @@ function toNative(items, act) {
     } else if (it.type === 'line') {
       out.push({ label: text(it), enabled: !!it.id && !it.disabled, click: () => act(it.id) });
       for (const a of it.actions || []) out.push({ label: a.label, enabled: !a.disabled, click: () => act(a.id) });
-      if (it.toggle) out.push({ label: it.toggle.long || it.toggle.label, type: 'checkbox', checked: !!it.toggle.on, click: () => act(it.toggle.id) });
+      for (const sw of [...(it.toggles || []), ...(it.toggle ? [it.toggle] : [])]) {
+        out.push({ label: sw.long || sw.label, type: 'checkbox', checked: !!sw.on, click: () => act(sw.id) });
+      }
     } else if (it.type === 'stepper') {
       const values = [];
       for (let v = it.min; v <= it.max; v += it.step) values.push(v);

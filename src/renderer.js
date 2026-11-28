@@ -299,6 +299,7 @@ document.addEventListener('mousedown', (e) => {
 // window); hidden while the menu is open
 // With toasts off, short messages (update check, 지금 새로고침) take its place for a few seconds.
 let updPill = false;
+let updBeta = false;            // the new version is a pre-release (베타 받기)
 let updToast = null;
 let updToastT = 0;
 let menuOpen = false;
@@ -308,7 +309,7 @@ $('updpill').addEventListener('click', () => {
 });
 function drawPill() {
   const p = $('updpill');
-  const text = updToast ? updToast.text : updPill ? '새로운 업데이트가 있습니다!' : '';
+  const text = updToast ? updToast.text : updPill ? (updBeta ? '새 베타가 있습니다!' : '새로운 업데이트가 있습니다!') : '';
   p.hidden = !text || menuOpen;
   p.textContent = text;
   p.className = `updpill hit ${updToast ? `toast ${updToast.level}` : ''}`;
@@ -1036,6 +1037,7 @@ window.widget.onFeed((d) => {
     updVersion = d.version || '';
     setProblems(lastProblemList);
     updPill = !!d.pill;
+    updBeta = !!d.beta;
     drawPill();
   } else if (d.type === 'update-toast') {
     // a short message in the bubble's place (toasts off): update check, 지금 새로고침

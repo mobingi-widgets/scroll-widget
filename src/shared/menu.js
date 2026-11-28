@@ -129,12 +129,13 @@ function draw(items) {
         btn.addEventListener('click', (e) => { e.stopPropagation(); if (!a.disabled) window.ctx.pick(a.id); });
         r.appendChild(btn);
       }
-      if (it.toggle) {
+      // its switches: toggles[] (2026-11-28: 베타 next to 자동), then toggle
+      for (const sw of [...(it.toggles || []), ...(it.toggle ? [it.toggle] : [])]) {
         const t = el('span', 'mini-sw');
-        t.appendChild(el('span', 'mini', it.toggle.label));
-        t.appendChild(el('span', `sw${it.toggle.on ? ' on' : ''}`));
-        tipOn(t, it.toggle.tip, `${key}:${it.toggle.id}`, back);
-        t.addEventListener('click', (e) => { e.stopPropagation(); window.ctx.pick(it.toggle.id); });
+        t.appendChild(el('span', 'mini', sw.label));
+        t.appendChild(el('span', `sw${sw.on ? ' on' : ''}`));
+        tipOn(t, sw.tip, `${key}:${sw.id}`, back);
+        t.addEventListener('click', (e) => { e.stopPropagation(); window.ctx.pick(sw.id); });
         r.appendChild(t);
       }
     }

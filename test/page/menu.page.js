@@ -122,12 +122,19 @@ app.whenReady().then(async () => {
     picks.length = 0;
     await click("document.querySelector('.bar .ib:nth-child(3)')");
     t.check('a greyed button (부팅 시 자동 실행 in a source copy): no pick', picks.length === 0 && /\bdisabled\b/.test(await js("document.querySelector('.bar .ib:nth-child(3)').className")), picks.join());
+    // the update line: two switches, 베타 next to 자동 (2026-11-28 - line.toggles)
+    await show(list);
+    const sws = await js("(() => { const r = [...document.querySelectorAll('.row')].find((x) => x.textContent.includes('업데이트')); return r ? [...r.querySelectorAll('.mini-sw .mini')].map((e) => e.textContent) : []; })()");
+    t.check('the update line has two switches: 베타 then 자동', JSON.stringify(sws) === '["베타","자동"]', JSON.stringify(sws));
+    picks.length = 0;
+    await click("[...document.querySelectorAll('.row')].find((x) => x.textContent.includes('업데이트')).querySelector('.mini-sw')");
+    t.check('...a click on 베타 picks upd-beta (the card opens from it, not a flip)', picks.includes('upd-beta'), picks.join());
     // ---- the tray's native menu: the same ids
     const acts = [];
     const native = require(path.join(dir, 'src', 'shared', 'ctxmenu.js')).toNative(list, (id, opt) => acts.push(opt ? `${id}:${opt}` : id));
     const walk = (m) => { for (const it of m.items) { if (it.submenu) walk(it.submenu); else if (it.click && it.enabled && it.type !== 'separator') it.click(it, null, {}); } };
     walk(native);
-    const reach = ['notice', 'reset-pos', 'autostart:on', 'nogame:window', 'quit', ...(scanner ? ['scan', 'nickmode:codeonly'] : ['refresh'])];
+    const reach = ['notice', 'reset-pos', 'autostart:on', 'nogame:window', 'quit', 'upd-beta', 'upd-auto', ...(scanner ? ['scan', 'nickmode:codeonly'] : ['refresh'])];
     t.check('the tray menu reaches the same ids', reach.every((id) => acts.includes(id)), reach.filter((id) => !acts.includes(id)).join());
   } catch (e) {
     t.fail('exception', e);

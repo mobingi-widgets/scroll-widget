@@ -43,7 +43,7 @@ class FakeWin {
 }
 const ipc = { handlers: {}, on(ch, fn) { (this.handlers[ch] = this.handlers[ch] || []).push(fn); }, removeListener() {} };
 const fakeElectron = {
-  BrowserWindow: FakeWin, ipcMain: ipc, dialog: {}, shell: { openExternal() {} }, app: { getVersion: () => '1.9.1' },
+  BrowserWindow: FakeWin, ipcMain: ipc, dialog: {}, shell: { openExternal() {} }, app: { getVersion: () => '1.9.1' }, Menu: { buildFromTemplate: (t) => t },
   screen: { getDisplayMatching: () => ({ workArea: work }), getPrimaryDisplay: () => ({ workArea: work }), getCursorScreenPoint: () => ({ x: 0, y: 0 }) },
 };
 const realLoad = Module._load;
@@ -159,6 +159,40 @@ for (const [app, dir] of [['widget', scanDir]]) {
   api.raise();
   check(`${app} raise(): with nothing up -> only the overlay, as before`, JSON.stringify(order) === '["overlay"]', JSON.stringify(order));
 }
+// ---- 베타 받기 (2026-11-28): the switch opens its card first - from the menu and from the tray - 취소 or closing keeps
+// it off, 동의하고 켜기 turns it on with the time; off at once, no card
+const bcfg = {};
+const bu = ui.create({ dir: scanDir, repo: 'x', app: 'mangho-scanner', version: '1.9.1', title: '망호 스캐너', userData: tmp,
+  canInstall: () => true, stageRoot: () => tmp, installOpts: () => ({}), previousDir: () => null, cfg: () => bcfg, saveCfg: (p) => Object.assign(bcfg, p),
+  near: () => game, page: () => {}, quit: () => {}, zoom: () => 1, avoid: () => [] });
+const bline = bu.menuItems()[0];
+check('the update line: a 베타 switch (off) beside 자동', (bline.toggles || []).length === 1 && bline.toggles[0].id === 'upd-beta' && bline.toggles[0].on === false && bline.toggle.id === 'upd-auto');
+let nWin = windows.length;
+check('click 베타 (off): the menu closes for the card, nothing turned on yet', bu.menuAct('upd-beta') === false && bcfg.beta !== true);
+const card = windows[windows.length - 1];
+check('...its card opens (a window of its own, beta.html)', windows.length === nWin + 1 && /beta\.html$/.test((card.loaded && card.loaded.file) || '') && bu.betaWindow() === card, JSON.stringify(card.loaded));
+const toCard = (action, arg) => (ipc.handlers['update-ui'] || []).forEach((f) => f({ sender: card.webContents }, action, arg));
+toCard('beta', false);
+check('취소: still off, the card closes', bcfg.beta !== true && !bcfg.betaAt && card.destroyed);
+bu.menuAct('upd-beta');
+const card2 = windows[windows.length - 1];
+card2.close();
+check('closing the card (its X): still off', bcfg.beta !== true && bu.betaWindow() === null);
+bu.menuAct('upd-beta');
+const card3 = windows[windows.length - 1];
+(ipc.handlers['update-ui'] || []).forEach((f) => f({ sender: card3.webContents }, 'beta', true));
+check('동의하고 켜기: on, the time kept, the card closes', bcfg.beta === true && !Number.isNaN(Date.parse(bcfg.betaAt)) && card3.destroyed, JSON.stringify(bcfg));
+check('...the switch shows it on, and its tip says turning off goes nowhere back', bu.menuItems()[0].toggles[0].on === true && /되돌리지 않음/.test(bu.menuItems()[0].toggles[0].tip));
+nWin = windows.length;
+check('click 베타 (on): off at once, no card', bu.menuAct('upd-beta') === true && bcfg.beta === false && windows.length === nWin);
+// the tray: its checkbox reaches the same id, and so opens the card first
+const native = require(path.join(scanDir, 'src', 'shared', 'ctxmenu.js')).toNative(bu.menuItems(), (id) => bu.menuAct(id));
+const boxes = native.filter((it) => it.type === 'checkbox').map((it) => it.label);
+check('the tray: 베타 받기 and 자동 업데이트 확인 as checkboxes', boxes.includes('베타 받기') && boxes.includes('자동 업데이트 확인'), JSON.stringify(boxes));
+nWin = windows.length;
+native.find((it) => it.label === '베타 받기').click();
+check('...베타 받기 from the tray opens the card first (not on yet)', windows.length === nWin + 1 && bcfg.beta === false && bu.betaWindow() === windows[windows.length - 1]);
+windows[windows.length - 1].close();
 p.then(() => {});
 
 // ---- 달라진 점만 보기 (2026-11-28): the edition agreed before goes to the notice page as ?seen= (notice.js marks

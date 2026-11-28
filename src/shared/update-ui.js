@@ -43,7 +43,7 @@ function create(o) {
     const i = st.info;
     const v = i && i.available ? i.version : null;
     o.page({
-      type: 'update', version: v,
+      type: 'update', version: v, beta: !!(v && i.beta),
       // the bubble under the ☰: not for a skipped version, nor while it is being fetched / installed
       pill: !!(v && cfg().skipVersion !== v && cfg().noticeDeclined !== (i.notice && i.notice.version) && !busy()),
     });
@@ -54,6 +54,7 @@ function create(o) {
       phase: st.phase, current: o.version, next: i.version || '', notes: i.notes || '', needFull: !!i.needFull,
       fullMb: i.full ? Math.round(i.full.size / 1e6) : 0, noticeChanged: noticeChanged(),
       canInstall: st.demo || o.canInstall(), progress: st.progress, error: st.error, tampered: st.tampered, title: o.title,
+      beta: !!i.beta,                     // a pre-release (베타 받기): the window marks it
     };
   }
   let lastBusy = false;
@@ -92,10 +93,14 @@ function create(o) {
   // the overlay raises itself every 2 s (main.js raise); this, right after, keeps the window
   // above it (as the 차단·메모 window). -> whether it is up
   function keepTop() {
-    if (!win || win.isDestroyed() || !win.isVisible()) return false;
-    win.setAlwaysOnTop(true, 'screen-saver');
-    win.moveTop();
-    return true;
+    let up = false;
+    for (const w of [win, betaWin]) {
+      if (!w || w.isDestroyed() || !w.isVisible()) continue;
+      w.setAlwaysOnTop(true, 'screen-saver');
+      w.moveTop();
+      up = true;
+    }
+    return up;
   }
   function openWindow() {
     if (win && !win.isDestroyed()) { send(); win.moveTop(); return; }
@@ -127,6 +132,55 @@ function create(o) {
     if (action === 'update' || action === 'retry') install();
   });
 
+  // ------------------------------------------------------------------ 베타 받기 card
+  // What a beta means, then 취소 / 동의하고 켜기 (user 2026-11-28). A card like the update window: over the game a
+  // third down, clear of the overlays, kept above them, its shadow passing the mouse (cardwin.js). Closed = 취소.
+  let betaWin = null;
+  let betaH = 220;
+  let betaThrough = null;
+  const BETA_W = 380;
+  function placeBeta() {
+    if (!betaWin || betaWin.isDestroyed()) return;
+    const z = zoom();
+    if (Math.abs(betaWin.webContents.getZoomFactor() - z) > 0.001) betaWin.webContents.setZoomFactor(z);
+    const g = o.near() || screen.getPrimaryDisplay().workArea;
+    const a = screen.getDisplayMatching(g).workArea;
+    const w = Math.min(Math.round(BETA_W * z), a.width - 20);
+    const h = Math.min(Math.round(betaH * z), a.height - 20);
+    const want = { x: Math.round(Math.max(a.x + 10, Math.min(g.x + (g.width - w) / 2, a.x + a.width - w - 10))),
+      y: Math.round(Math.max(a.y + 10, Math.min(g.y + Math.max(10, (g.height - h) / 3), a.y + a.height - h - 10))), width: w, height: h };
+    betaWin.setBounds(cardwin.toWindow(clearOf(want, o.avoid ? o.avoid() : [], a), z));
+  }
+  function betaCard() {
+    if (betaWin && !betaWin.isDestroyed()) { betaWin.moveTop(); return; }
+    const first = cardwin.toWindow({ x: 0, y: 0, width: BETA_W, height: betaH }, 1);
+    betaWin = new BrowserWindow({
+      width: first.width, height: first.height, show: false, frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false,
+      resizable: false, minimizable: false, maximizable: false, skipTaskbar: true, alwaysOnTop: true, title: `${o.title} 베타 받기`,
+      webPreferences: { preload: path.join(__dirname, 'update-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+    });
+    betaWin.setAlwaysOnTop(true, 'screen-saver');
+    betaThrough = cardwin.clickThrough(betaWin, { zoom });
+    betaWin.webContents.on('will-navigate', (e) => e.preventDefault());
+    betaWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    betaWin.loadFile(path.join(__dirname, 'beta.html'));
+    betaWin.webContents.on('did-finish-load', () => { placeBeta(); betaWin.showInactive(); });
+    betaWin.on('closed', () => { betaWin = null; betaThrough = null; });
+  }
+  function betaAnswer(yes) {
+    if (yes) {
+      o.saveCfg({ beta: true, betaAt: new Date().toISOString() });
+      check();                             // a beta now on offer shows as any new version does
+    }
+    if (betaWin && !betaWin.isDestroyed()) betaWin.close();
+  }
+  ipcMain.on('update-ui', (e, action, arg) => {
+    if (!betaWin || betaWin.isDestroyed() || e.sender !== betaWin.webContents) return;
+    if (action === 'height') { betaH = Math.max(100, Math.ceil(Number(arg) || 0)); placeBeta(); return; }
+    if (action === 'hold') { if (betaThrough) betaThrough.hold(arg); return; }
+    if (action === 'beta') betaAnswer(arg === true);
+  });
+
   // ------------------------------------------------------------------- checking
   // A manual check always answers (user, 2026-11-27: 1.3.0's "지금 확인" said nothing): a click
   // during a running check gets that check's answer, one during a download sees the window.
@@ -135,7 +189,7 @@ function create(o) {
     if (st.checking) { if (manual) st.manualWaiting = true; return; }
     st.checking = true;
     try {
-      st.info = await updater.check({ repo: o.repo, app: o.app, version: o.version, lastRepo: cfg().feedRepo });
+      st.info = await updater.check({ repo: o.repo, app: o.app, version: o.version, lastRepo: cfg().feedRepo, beta: cfg().beta === true });
       st.error = '';
       // found somewhere else through the directory (feeds/apps.json): look there first next time
       const found = st.info && st.info.repo;
@@ -299,12 +353,27 @@ function create(o) {
     line.actions = [{ id: 'upd-check', text: st.checking ? '…' : '↻', label: st.checking ? '확인 중...' : '업데이트 확인',
       tip: `지금 확인 · ${when}`, disabled: st.checking }];
     line.toggle = { id: 'upd-auto', label: '자동', long: '자동 업데이트 확인', on: c.autoCheck !== false, tip: '켤 때와 6시간마다 확인' };
+    // 베타 받기 (user 2026-11-28): on only after its card (betaCard); off at once - nothing goes back
+    line.toggles = [{ id: 'upd-beta', label: '베타', long: '베타 받기', on: c.beta === true,
+      tip: c.beta === true ? '베타 받는 중 · 누르면 끔 — 끄면 정식 판이 지금 판을 넘을 때까지 이 판 그대로(되돌리지 않음)'
+        : '정식 전 시험판도 받기 · 누르면 먼저 안내' }];
     return [line];
   }
   // -> keep the menu open?
   function menuAct(id) {
     if (id === 'upd-show') { show(); return false; }
     if (id === 'upd-check') { check({ manual: true }); return false; }
+    if (id === 'upd-beta') {
+      if (cfg().beta === true) {
+        o.saveCfg({ beta: false });
+        if (st.info && st.info.beta) st.info = null;   // a beta on offer is not one any more
+        pageState();
+        check();
+        return true;
+      }
+      betaCard();                          // on: the card first (the tray's line too); the menu closes for it
+      return false;
+    }
     if (id === 'upd-auto') {
       const on = cfg().autoCheck === false;
       o.saveCfg({ autoCheck: on });
@@ -360,7 +429,7 @@ function create(o) {
     }
   }
 
-  return { start, check, show, afterStart, rollback, hasPrevious, menuItems, menuAct, pageState, demo, selfTest, keepTop, state: () => st };
+  return { start, check, show, afterStart, rollback, hasPrevious, menuItems, menuAct, pageState, demo, selfTest, keepTop, state: () => st, betaWindow: () => betaWin };
 }
 
 module.exports = { create };

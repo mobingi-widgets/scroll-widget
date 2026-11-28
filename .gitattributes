@@ -6,3 +6,6 @@
 *.bat text eol=crlf
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
+# signed release files used as test fixtures (test/fixtures/feeds): their bytes are what the signature covers -
+# never converted
+test/fixtures/feeds/** -text

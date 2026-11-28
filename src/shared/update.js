@@ -35,6 +35,7 @@ function render(m) {
   const next = `v${m.next}`;
   if (m.phase === 'available' || m.phase === 'idle') {
     t.textContent = '새 버전이 있습니다';
+    if (m.beta) { const b = document.createElement('span'); b.className = 'beta-mark'; b.textContent = '베타'; t.appendChild(b); }   // a pre-release
     let body = `${next} 버전으로 업데이트할 수 있습니다. (지금 v${m.current})`;
     if (m.noticeChanged) body += '\n이용 안내가 바뀌어 업데이트 전에 다시 동의해야 합니다.';
     if (m.needFull) body += `\n프로그램 전체(약 ${m.fullMb} MB)를 릴리스 페이지에서 새로 받아야 합니다.`;
