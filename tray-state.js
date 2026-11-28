@@ -1,6 +1,7 @@
 // tray-state.js - the tray icon says the overlay's state (user 2026-11-27; same copy in both
-// overlays): grey = hidden by the user (☰ → 표시 → 숨김; not the short "game is behind" hide of
-// 게임 앞), a red dot = a problem (the same list as the ☰ ⚠). Both together are possible. The
+// overlays): grey = hidden - by the user (☰ → 표시 → 숨김; not the short "game is behind" hide of
+// 게임 앞) or for want of a game window (nogame.js; the tooltip says why), a red dot = a problem (the
+// same list as the ☰ ⚠). Both together are possible. The
 // variants are drawn from the program's own tray.png / tray@2x.png at start - no extra files.
 'use strict';
 
@@ -62,7 +63,7 @@ function variant(base, grey, dot) {
   return img.isEmpty() ? base : img;
 }
 
-// create({ tray, dir, name }) -> { update({ hidden, problem }), image(hidden, problem) }
+// create({ tray, dir, name }) -> { update({ hidden, why, problem }), image(hidden, problem) }
 function create(o) {
   const base = nativeImage.createFromPath(path.join(o.dir, 'tray.png'));   // tray@2x.png comes along
   const cache = new Map();
@@ -72,10 +73,11 @@ function create(o) {
     return cache.get(key);
   };
   let last = '';
-  function update({ hidden, problem }) {
-    const tip = [o.name + (hidden ? ' · 숨김' : '') + (problem ? ` · ⚠ ${problem}` : ''),
+  // why: what hid it, when not the user (nogame.js: '게임 없음' - grey all the same)
+  function update({ hidden, why, problem }) {
+    const tip = [o.name + (hidden ? ` · 숨김${why ? ` (${why})` : ''}` : '') + (problem ? ` · ⚠ ${problem}` : ''),
       hidden ? '클릭: 보이기' : '클릭: 숨기기'].join('\n').slice(0, 120);
-    const key = `${!!hidden}|${problem || ''}`;
+    const key = `${!!hidden}|${why || ''}|${problem || ''}`;
     if (key === last || !o.tray || o.tray.isDestroyed()) return;
     last = key;
     o.tray.setImage(image(hidden, problem));

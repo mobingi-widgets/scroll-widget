@@ -13,6 +13,7 @@ const ICONS = {
   toast: '<rect x="1.5" y="2.5" width="13" height="11" rx="2"/><path d="M5 5.7h6"/>',      // a toast on the screen
   recipe: '<path d="M4 1.8h5.4L12 4.4v9.8H4z"/><path d="M9.4 1.8v2.6H12"/><path d="M6 7.6h4M6 10.2h4"/>',
   power: '<path d="M8 2v5.5"/><path d="M4.6 4.4a5.2 5.2 0 1 0 6.8 0"/>',
+  boot: '<rect x="1.5" y="2.5" width="13" height="9" rx="1.5"/><path d="M8 11.5v2.3M5.4 14h5.2"/><path d="M6.7 5.1l3.1 1.9-3.1 1.9z"/>',   // the PC starts it
 };
 
 function el(tag, cls, text) {
@@ -57,11 +58,12 @@ function option(it, o) {
 }
 
 // the bottom bar: icon buttons for what is rarely used, then one button at the far end (종료).
-// A button with options steps to the next one per click (the hint says which is on).
+// A button with options steps to the next one per click (the hint says which is on); on: a switch that is
+// on (부팅 시 자동 실행) - its picture in the switch colour.
 function bar(it) {
   const r = el('div', 'bar');
   const add = (b, cls) => {
-    const n = el('span', `${cls}${b.disabled ? ' disabled' : ''}`);
+    const n = el('span', `${cls}${b.disabled ? ' disabled' : ''}${b.on ? ' on' : ''}`);
     n.appendChild(icon(b.icon));
     if (b.text) n.appendChild(el('span', null, b.text));
     tipOn(n, b.tip || b.label, `bar:${b.id}`);

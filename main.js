@@ -22,6 +22,8 @@ const toastLib = require('./toast-ui');
 const hitpoll = require('./hitpoll');
 const lockLib = require('./lock');
 const trayState = require('./tray-state');
+const nogameLib = require('./nogame');
+const autostartLib = require('./autostart');
 
 // The notice (이용 안내, notice.html - its <meta name="notice-version"> is the version): nothing
 // starts - no game reads, no window tracking, no update check - until it is agreed to.
@@ -45,7 +47,8 @@ function makeUpdateUi() {
     previousDir: () => path.join(stageRoot(), 'previous'),
     installOpts: () => ({
       appDir: __dirname, keep: ['node_modules', 'data', 'icons', '.git', '.gitignore', '.gitattributes'],
-      launch: path.join(__dirname, 'node_modules', 'electron', 'dist', 'electron.exe'), launchArgs: '.', launchCwd: __dirname,
+      // hidden for want of a game: the restart stays hidden too (a quiet start) - no window popping up at night
+      launch: path.join(__dirname, 'node_modules', 'electron', 'dist', 'electron.exe'), launchArgs: autoHidden() ? `. ${autostartLib.FLAG}` : '.', launchCwd: __dirname,
     }),
     cfg: () => cfg, saveCfg, near: () => gameRectDip(), avoid: overlayRects,
     // short messages go to the toast window (if toasts are off: dropped, as before); the rest to the page
@@ -73,8 +76,9 @@ let charSwitched = false;        // a character switch was seen; toast it with t
 // not on top, dragged by its top row - and goes back to being an overlay as soon as
 // the game window is found again.
 let appMode = false;
-let lostSince = 0;
-const APP_AFTER_MS = 3000;       // the game window must be gone this long (loading screens blink)
+const APP_AFTER_MS = 3000;       // the game window must be gone this long (loading screens blink; nogame.js)
+let noGame = null;                // nogame.js: what to do while the game window cannot be found (auto-hide)
+let autostart = null;             // autostart.js: 부팅 시 자동 실행
 // what the ☰ menu reports about syncing
 const sync = { status: 'loading', message: '', t: 0, char: null, week: null, recordAt: null, recordBy: null, feedDead: false };
 
@@ -94,6 +98,8 @@ const WIDTH_STRIP = 8;
 // maxH as before describe it with the content at its top (valign 'top'), the same picture as
 // the content-sized window had; fyb = its bottom edge once the content sits at the bottom
 const DEFAULTS = { width: 270 + WIDTH_STRIP, align: 'left', ...POS.left, valign: 'top', fyb: 0.9, show: 'always', opacity: 1, expanded: false, v: 5, scale: 100, text: 100, lockShrink: false,
+  // (user 2026-11-28) 게임 창을 찾지 못할 때 [숨김 | 창] (nogame.js) · 부팅 시 자동 실행 (autostart.js)
+  noGame: 'hide', autostart: false,
   toast: { on: true, pos: 'top', min: 'info' } };
 // 배율 % and 글자 % (user 2026-11-27, 1.6.0 - people play at different in-game UI scales):
 // - 배율 (cfg.scale) times the zoom that follows the game window's size; every window of this
@@ -127,6 +133,8 @@ function loadCfg() {
   c.scale = stepped(c.scale, SCALE, 100);
   c.text = stepped(c.text, TEXT, 100);
   c.lockShrink = c.lockShrink === true;              // 잠금 때 작게: off unless turned on
+  if (c.noGame !== 'window') c.noGame = 'hide';      // NO_GAME (a new install and 1.8.0 settings: 숨김)
+  c.autostart = c.autostart === true;
   delete c.font;
   // 1.4.0 and before (v3): no strip for the width bar yet
   if ((saved.v || 0) < 4 && typeof saved.width === 'number') c.width = saved.width + WIDTH_STRIP;
@@ -173,10 +181,11 @@ function ago(t) {
 
 function problems() {
   const out = [];
+  const paused = autoHidden();          // hidden for want of a game: the feed waits on purpose (no game reads)
   if (sync.feedDead) out.push(`피드 재시작 중 — ${sync.message}`);
-  else if (sync.status === 'offline') out.push(`게임 연결 끊김 — ${sync.message || '재시도 중'}`);
-  // no game window is not a problem to warn about: the overlay turns into a plain window (appMode)
-  if (sync.t && Date.now() / 1000 - sync.t > STALE_SEC) out.push(`갱신 멈춤 (${ago(sync.t)} 전이 마지막)`);
+  else if (sync.status === 'offline' && !paused) out.push(`게임 연결 끊김 — ${sync.message || '재시도 중'}`);
+  // no game window is not a problem to warn about: the overlay turns into a plain window (appMode) or hides
+  if (sync.t && Date.now() / 1000 - sync.t > STALE_SEC && !paused) out.push(`갱신 멈춤 (${ago(sync.t)} 전이 마지막)`);
   if (sync.char && sync.char.provisional) out.push(`처음 보는 캐릭터 — 기존 캐릭터인지 확인 필요 (${sync.char.job} · 가방 ${sync.char.weight})`);
   return out;
 }
@@ -186,7 +195,7 @@ let knownProblems = new Set();
 // The tray icon says the state (tray-state.js): grey = hidden by the user, a red dot = a problem
 let trayUi = null;
 function updateTray() {
-  if (trayUi) trayUi.update({ hidden: cfg.show === 'hidden', problem: (problems()[0] || '').split(' — ')[0] });
+  if (trayUi) trayUi.update({ hidden: hiddenNow(), why: cfg.show !== 'hidden' && autoHidden() ? '게임 없음' : '', problem: (problems()[0] || '').split(' — ')[0] });
 }
 
 function pushProblems() {
@@ -232,6 +241,11 @@ function refreshDone(text, level) {
   manualRefresh = null;
 }
 function refreshNow() {
+  if (autoHidden()) {                   // hidden for want of a game: the feed waits (nogame.js) - nothing to read
+    const text = '게임 창이 없어 새로고침하지 않습니다';
+    if (!notify({ id: 'refresh-now', text, level: 'warn', by: '위젯' })) toPage({ type: 'update-toast', text, level: 'warn', sec: 3 });
+    return;
+  }
   if (manualRefresh) return;            // already asked: its toast answers
   manualRefresh = { toast: notify({ id: 'refresh-now', text: '새로고침 중…', level: 'info', sec: 60, by: '위젯' }), started: false };
   if (!manualRefresh.toast) toPage({ type: 'update-toast', text: '새로고침 중…', level: 'info', sec: 30 });
@@ -340,12 +354,22 @@ function setMode(app) {
   place();
 }
 
+// the game window there or not: the overlay, a plain window, or hidden (nogame.js decides, at the moments it changes)
 function checkMode() {
-  if (SHOT || DEMO) return;
+  if (SHOT || DEMO || !noGame) return;
   // MOBINGI_WIDGET_FORCE_APP=1: behave as if there were no game window (to check window-app mode)
-  if (game.found && !process.env.MOBINGI_WIDGET_FORCE_APP) { lostSince = 0; setMode(false); return; }
-  if (!lostSince) lostSince = Date.now();
-  if (Date.now() - lostSince >= APP_AFTER_MS) setMode(true);
+  noGame.tick(game.found && !process.env.MOBINGI_WIDGET_FORCE_APP);
+}
+const autoHidden = () => !!(noGame && noGame.hidden());
+const hiddenNow = () => cfg.show === 'hidden' || autoHidden();
+function makeNoGame(quiet) {
+  return nogameLib.create({
+    setting: () => cfg.noGame, quiet, afterMs: APP_AFTER_MS, setMode,
+    // hidden for want of a game: the feed stops reading the game (they would only fail every 10 s) - it
+    // still watches for the game window; back: it reads at once
+    onHide: () => { toFeed({ cmd: 'pause' }); updateVisibility(); updateTray(); pushProblems(); },
+    onShow: () => { toFeed({ cmd: 'resume' }); updateVisibility(); updateTray(); pushProblems(); },
+  });
 }
 
 function raise() {
@@ -490,7 +514,7 @@ function place() {
 function updateVisibility() {
   if (!win || win.isDestroyed()) return;
   let visible;
-  if (cfg.show === 'hidden') visible = false;
+  if (hiddenNow()) visible = false;
   else if (appMode) visible = true;
   else if (cfg.show === 'always') visible = true;
   else visible = !game.found ? true : (!game.minimized && (game.front === 'game' || game.front === 'self'));
@@ -549,6 +573,7 @@ function startFeed() {
     env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
   });
   sync.feedDead = false;
+  if (autoHidden()) toFeed({ cmd: 'pause' });      // hidden for want of a game (a quiet start, a restarted feed)
   let buf = '';
   feed.stdout.setEncoding('utf8');
   feed.stdout.on('data', (chunk) => {
@@ -761,6 +786,10 @@ function menuItems() {
     options: [['always', '항상'], ['game', '게임 앞'], ['hidden', '숨김']].map(([id, l]) => ({ id, label: l, on: cfg.show === id })),
   });
   items.push({
+    type: 'segment', id: 'nogame', label: '게임 없을 때', tip: '게임 창을 찾지 못할 때 — 숨김: 트레이 아이콘만 · 창: 일반 창으로',
+    options: [['hide', '숨김'], ['window', '창']].map(([id, l]) => ({ id, label: l, on: cfg.noGame === id })),
+  });
+  items.push({
     type: 'segment', id: 'wings', label: '날개 하루', tip: '날개 증감의 하루 경계 (게임 일일 초기화 시각)',
     options: [[null, '미정'], ['05:00', '5시'], ['06:00', '6시'], ['07:00', '7시'], ['09:00', '9시']].map(([id, l]) => ({ id: id || '', label: l, on: (sync.wingsReset || null) === id })),
   });
@@ -784,6 +813,7 @@ function menuItems() {
     buttons: [
       { id: 'notice', icon: 'info', label: '이용 안내 보기' },
       { id: 'reset-pos', icon: 'locate', label: '위치 초기화', tip: '위치 초기화 · 옮기려면 ☰를 끕니다' },
+      ...(autostart ? [autostart.button()] : []),     // 부팅 시 자동 실행 (autostart.js)
       ...(toast ? toast.barButtons() : []),            // 알림 등급 · 시험 알림
       { id: 'recipes', icon: 'recipe', label: '레시피 다시 읽기', tip: '레시피 다시 읽기 · 보통 30분마다 읽습니다' },
     ],
@@ -801,6 +831,8 @@ function menuAct(id, opt) {
     case 'minimize': if (win) win.minimize(); return false;
     case 'reset-pos': saveCfg({ ...POS[cfg.align], valign: 'top' }); toPage(windowState()); place(); return false;
     case 'show': setShow(opt); return opt !== 'hidden';
+    case 'nogame': if (opt === 'hide' || opt === 'window') { saveCfg({ noGame: opt }); if (noGame) noGame.setting(opt); } return true;
+    case 'autostart': if (autostart) autostart.set(opt === 'on'); return true;
     case 'wings':
       sync.wingsReset = opt || null;
       toFeed({ cmd: 'wings_reset', value: opt || null });
@@ -840,8 +872,17 @@ function popupMenu() {
 function setShow(v) {
   if (v === 'hidden' && cfg.show !== 'hidden') saveCfg({ showBefore: cfg.show });   // the tray click goes back to it
   saveCfg({ show: v });
+  // asked to show while hidden for want of a game (the tray, a second start, ☰ 표시 from the tray): a plain
+  // window until the game window comes or goes (nogame.js)
+  if (v !== 'hidden' && noGame) noGame.reveal();
   updateVisibility();
   updateTray();
+}
+// the tray icon's click: show what is hidden (by the user or for want of a game), else hide
+function trayClick() {
+  if (cfg.show === 'hidden') setShow(cfg.showBefore || 'always');
+  else if (autoHidden()) setShow(cfg.show);
+  else setShow('hidden');
 }
 
 function setOpacity(o) {
@@ -901,7 +942,7 @@ function createTray() {
   tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'tray.png')));
   trayUi = trayState.create({ tray, dir: __dirname, name: '주간 납품 위젯' });
   updateTray();
-  tray.on('click', () => setShow(cfg.show === 'hidden' ? (cfg.showBefore || 'always') : 'hidden'));
+  tray.on('click', trayClick);
   tray.on('right-click', () => tray.popUpContextMenu(buildMenu()));
 }
 
@@ -1005,7 +1046,9 @@ app.on('web-contents-created', (_e, wc) => {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => setShow(cfg.show === 'hidden' ? (cfg.showBefore || 'always') : cfg.show));
+  // started again by hand: show it (also when hidden for want of a game); the login start of a copy already
+  // running (autostart.js) changes nothing
+  app.on('second-instance', (_e, argv) => { if (!autostartLib.quiet(argv)) setShow(cfg.show === 'hidden' ? (cfg.showBefore || 'always') : cfg.show); });
   app.whenReady().then(async () => {
     cfg = loadCfg();
     if (cfgOlder) saveCfg({});
@@ -1024,6 +1067,20 @@ if (!app.requestSingleInstanceLock()) {
       if (answer !== true) { app.quit(); return; }
       saveCfg({ notice: noticeV, noticeAt: new Date().toISOString(), noticeDeclined: null });
     }
+    // 부팅 시 자동 실행 (autostart.js): only an installed copy (no .git) writes the login item - the source copy
+    // shares this settings file with it; electron.exe is started with this folder (quoted: the login runs
+    // elsewhere than here). Every start puts the entry right.
+    autostart = autostartLib.create({
+      name: 'mobingi-scroll-widget', installed: () => !fs.existsSync(path.join(__dirname, '.git')),
+      exe: () => process.execPath, args: () => [`"${__dirname}"`],
+      want: () => cfg.autostart === true, save: (on) => saveCfg({ autostart: on }),
+      login: { get: (o) => app.getLoginItemSettings(o), set: (o) => app.setLoginItemSettings(o) },
+    });
+    const testRun = !!(SHOT || DEMO || FAKE_GAME || DUMP);
+    if (!testRun) autostart.sync();
+    // started at login (or again after an update made while hidden): with 숨김, hidden from the first moment
+    // until the game window shows; started by hand: a plain window if there is no game (nogame.js)
+    noGame = makeNoGame(!testRun && autostartLib.quiet(process.argv));
     createTray();
     createWindow();
     starting = false;                  // from here, closing the last window quits

@@ -11,6 +11,9 @@ stdout. It sends commands back as JSON lines on stdin:
     {"cmd": "rename", "key": "...", "name": "..."}   name a character
     {"cmd": "confirm", "key": "..."}                 an unknown fingerprint really is a new character
     {"cmd": "merge", "src": "...", "dst": "..."}     ...or it is a known one (class change / bag expansion)
+    {"cmd": "pause"} / {"cmd": "resume"}            the overlay hides for want of a game window (nogame.js):
+                                                     no game reads (they would only fail) until resume -
+                                                     then everything at once. The game window is still watched.
 
 What can be known and what cannot (2026-11-26/27):
 - A delivery quest is "<품목> 만들기": hold N of the item, then report at the
@@ -721,6 +724,31 @@ def stdin_reader():
     COMMANDS.put({"cmd": "quit"})   # the window went away
 
 
+RECORD_CMDS = ("report", "rename", "confirm", "merge")
+
+
+def record_cmd(cmd, key):
+    """report / rename / confirm / merge on the record - no game reads. -> the key after it (a merge may move it)."""
+    kind = cmd.get("cmd")
+    record = ws.load()
+    if kind == "report":
+        if not (key and cmd.get("item") in ALL_ITEMS):
+            return key
+        ws.record_report(record, key, cmd["item"], int(cmd.get("delta", 1)))
+    elif kind == "rename":
+        ws.rename(record, cmd.get("key"), cmd.get("name") or "")
+    elif kind == "confirm":
+        ws.confirm(record, cmd.get("key"))
+    elif kind == "merge":
+        ws.merge(record, cmd.get("src"), cmd.get("dst"))
+        if key == cmd.get("src"):
+            key = cmd.get("dst")
+    else:
+        return key
+    ws.save(record, "widget")
+    return key
+
+
 def main():
     game.use_utf8_stdout()
     threading.Thread(target=stdin_reader, daemon=True).start()
@@ -742,8 +770,28 @@ def main():
     seen_ready = set()
     failures = 0
     last_saved = 0.0
+    paused = False                 # {"cmd": "pause"}: hidden for want of a game window - no game reads
 
     while True:
+        if paused:
+            # Nothing to read: wait for a command. refresh / recipes / redraw wait for resume, which reads
+            # everything at once; what needs no game (a toast, the record, the wings day) is done now.
+            cmd = COMMANDS.get()
+            kind = cmd.get("cmd")
+            if kind == "quit":
+                return 0
+            if kind == "resume":
+                paused = False
+                for k in ("fast", "stock", "works"):
+                    due[k] = 0
+            elif kind == "notify":
+                emit({"type": "notify", "text": cmd.get("text"), "level": cmd.get("level", "info"),
+                      "sec": cmd.get("sec"), "by": cmd.get("by")})
+            elif kind == "wings_reset":
+                wings.set_reset(cmd.get("value"))
+            elif kind in RECORD_CMDS:
+                key = record_cmd(cmd, key)
+            continue
         now = time.time()
         status, message = "ok", ""
         dirty = False
@@ -864,7 +912,10 @@ def main():
         kind = cmd.get("cmd")
         if kind == "quit":
             return 0
-        if kind == "redraw":                  # the record changed on disk: redraw from it, no game reads
+        if kind == "pause":
+            paused = True
+            continue
+        if kind in ("redraw", "resume"):      # the record changed on disk: redraw from it, no game reads
             continue
         if kind == "notify":
             emit({"type": "notify", "text": cmd.get("text"), "level": cmd.get("level", "info"),
@@ -881,20 +932,8 @@ def main():
             if kind == "recipes":
                 due["recipes"] = 0
             continue
-        record = ws.load()
-        if kind == "report" and key and cmd.get("item") in ALL_ITEMS:
-            ws.record_report(record, key, cmd["item"], int(cmd.get("delta", 1)))
-        elif kind == "rename":
-            ws.rename(record, cmd.get("key"), cmd.get("name") or "")
-        elif kind == "confirm":
-            ws.confirm(record, cmd.get("key"))
-        elif kind == "merge":
-            ws.merge(record, cmd.get("src"), cmd.get("dst"))
-            if key == cmd.get("src"):
-                key = cmd.get("dst")
-        else:
-            continue
-        ws.save(record, "widget")
+        if kind in RECORD_CMDS:
+            key = record_cmd(cmd, key)
 
 
 if __name__ == "__main__":

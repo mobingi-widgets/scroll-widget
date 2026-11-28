@@ -71,6 +71,7 @@ body { font: 700 12px/1.35 "Malgun Gothic", "Segoe UI", system-ui, sans-serif; c
 .bar .ib { width: 28px; color: #aeb4bf; }
 .bar .end { gap: 5px; padding: 0 8px; color: #cfd3da; }
 .bar .ib:hover, .bar .end:hover { background: rgba(255,255,255,.10); color: #fff; }
+.bar .ib.on, .bar .ib.on:hover { color: #2fc6a5; }      /* a switch that is on (부팅 시 자동 실행): the switch colour */
 .bar .disabled { opacity: .4; cursor: default; }
 .bar .disabled:hover { background: none; }
 .bar svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
