@@ -10,7 +10,7 @@
 // - Every start syncs: on -> registered again when the path or arguments changed (the folder moved, a new
 //   install); off -> an entry pointing at this program is removed.
 // - An update restarts the same exe, so the entry stays right.
-// create({ name, installed(), exe(), args() (more arguments before FLAG, e.g. the app folder - quoted), want(),
+// create({ name, installed(), exe(), args() (more arguments before FLAG, e.g. the app folder - bare), want(),
 //   save(on), login: { get(opts), set(opts) } (app.getLoginItemSettings / setLoginItemSettings; a stand-in in
 //   tests - never the real registry) }) -> { sync(), set(on), state(), button() }
 'use strict';
@@ -19,7 +19,9 @@ const FLAG = '--autostart';
 const quiet = (argv) => (argv || []).includes(FLAG);
 const unq = (s) => String(s || '').replace(/^"(.*)"$/, '$1');
 const samePath = (a, b) => unq(a).replace(/\//g, '\\').toLowerCase() === unq(b).replace(/\//g, '\\').toLowerCase();
-const sameArgs = (a, b) => (a || []).map(unq).join('\u0001') === (b || []).map(unq).join('\u0001');
+// args() are given bare - Electron quotes each one itself (AddQuoteForArg) and hands them back parsed, so they
+// compare as they are: an entry whose arguments carry literal quotes (a wrong one) is written again
+const sameArgs = (a, b) => (a || []).join('\u0001') === (b || []).join('\u0001');
 
 function create(o) {
   const args = () => [...(o.args ? o.args() : []), FLAG];

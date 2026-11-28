@@ -1068,11 +1068,13 @@ if (!app.requestSingleInstanceLock()) {
       saveCfg({ notice: noticeV, noticeAt: new Date().toISOString(), noticeDeclined: null });
     }
     // 부팅 시 자동 실행 (autostart.js): only an installed copy (no .git) writes the login item - the source copy
-    // shares this settings file with it; electron.exe is started with this folder (quoted: the login runs
-    // elsewhere than here). Every start puts the entry right.
+    // shares this settings file with it; electron.exe is started with this folder (the login runs elsewhere
+    // than here). The folder goes bare: Electron quotes every argument itself (AddQuoteForArg) - quoted here as
+    // well, the started program saw the quotes as part of the path and could not find the app. Every start
+    // puts the entry right.
     autostart = autostartLib.create({
       name: 'mobingi-scroll-widget', installed: () => !fs.existsSync(path.join(__dirname, '.git')),
-      exe: () => process.execPath, args: () => [`"${__dirname}"`],
+      exe: () => process.execPath, args: () => [__dirname],
       want: () => cfg.autostart === true, save: (on) => saveCfg({ autostart: on }),
       login: { get: (o) => app.getLoginItemSettings(o), set: (o) => app.setLoginItemSettings(o) },
     });
