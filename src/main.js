@@ -169,8 +169,13 @@ const DUMP = process.env.MOBINGI_WIDGET_DUMP;
 // made-up docs/demo-snapshot.json - no game reads, no game window, neutral backdrop (demoShots)
 const DEMO = process.env.MOBINGI_WIDGET_DEMO;
 if (DEMO) app.setPath('userData', path.join(require('os').tmpdir(), 'mobingi-scroll-widget-demo'));
-// a window Windows reports as covered stops drawing - the demo's pictures must not depend on what else is on screen
-if (DEMO) app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+// Chromium's native window occlusion: a window it takes for covered stops drawing. It counts a per-pixel layered
+// window that takes the mouse as opaque - the ☰ menu's full-screen click catcher (ctxmenu.js) is one - so with the
+// menu open the overlay was "covered": a 배율 step resized it and nothing was drawn; it came back when the menu
+// closed (the user's report 2026-11-28, read from the screen by 운영담당). Off, always (it also keeps the demo's
+// pictures independent of what else is on screen). Hidden windows still do not draw. Any other feature to disable
+// goes into this one comma list: appendSwitch twice does not merge.
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
 function toPage(obj) {
   if (win && !win.isDestroyed()) win.webContents.send('feed', obj);

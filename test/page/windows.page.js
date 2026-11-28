@@ -49,6 +49,8 @@ app.whenReady().then(async () => {
     require(path.join(SRC, 'main.js'));
     const overlay = await until('index.html', 15000);
     t.check('the overlay page loads (src/index.html)', !!overlay);
+    t.check('native window occlusion is off (the ☰ menu click catcher made the overlay stop drawing, 2026-11-28)',
+      (app.commandLine.getSwitchValue('disable-features') || '').split(',').includes('CalculateNativeWinOcclusion'), app.commandLine.getSwitchValue('disable-features'));
     if (!overlay) throw new Error('no overlay');
     await wait(800);
     delete process.env.NOTICE_AUTO;      // the start's notice is agreed; the one from the menu stays open

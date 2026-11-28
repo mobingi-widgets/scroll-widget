@@ -52,5 +52,17 @@ app.exit = (code) => {
   exit(reached.length ? 1 : code);
 };
 
+// A suite that cannot load (a syntax error) or throws outside its own try must not reach Electron's handler: that
+// puts a "JavaScript error in the main process" dialog on the user's screen and waits there until run.js gives up
+// (2026-11-28: a broken windows.page.js did, ~5 min). Said in the output instead, and the suite fails at once.
+const fatal = (what, e) => {
+  console.log(`FAIL ${what}: ${(e && e.stack) || e}`);
+  console.log('SOME FAILED');
+  exit(1);
+};
+process.on('uncaughtException', (e) => fatal('uncaught exception', e));
+process.on('unhandledRejection', (e) => fatal('unhandled rejection', e));
 const suite = process.argv.find((a) => a.endsWith('.page.js'));
-if (!suite) { console.log('FAIL no suite given'); app.exit(1); } else require(path.resolve(suite));
+if (!suite) { console.log('FAIL no suite given'); app.exit(1); } else {
+  try { require(path.resolve(suite)); } catch (e) { fatal(`the suite did not load (${path.basename(suite)})`, e); }
+}
