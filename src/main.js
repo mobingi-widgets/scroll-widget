@@ -28,6 +28,7 @@ const lockLib = require('./shared/lock');
 const trayState = require('./shared/tray-state');
 const nogameLib = require('./shared/nogame');
 const autostartLib = require('./shared/autostart');
+const fadeLib = require('./shared/fade');
 
 // The notice (이용 안내, notice.html - its <meta name="notice-version"> is the version): nothing
 // starts - no game reads, no window tracking, no update check - until it is agreed to.
@@ -176,6 +177,9 @@ if (DEMO) app.setPath('userData', path.join(require('os').tmpdir(), 'mobingi-scr
 // pictures independent of what else is on screen). Hidden windows still do not draw. Any other feature to disable
 // goes into this one comma list: appendSwitch twice does not merge.
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+
+// size changes eased: the page dims a moment, the size swaps, it comes back (fade.js - 배율 / 글자 steps, 잠금 때 작게)
+const fade = fadeLib.create({ toPage: (m) => toPage(m) });
 
 function toPage(obj) {
   if (win && !win.isDestroyed()) win.webContents.send('feed', obj);
@@ -851,8 +855,8 @@ function menuAct(id, opt) {
       return true;
     case 'toast-pos': case 'toast-min': case 'toast-test': return toast ? toast.menuAct(id, opt) : false;
     // (the open menu keeps its size until it closes; the value changes in place)
-    case 'scale': saveCfg({ scale: stepped(opt, SCALE, cfg.scale) }); place(); return true;
-    case 'text': saveCfg({ text: stepped(opt, TEXT, cfg.text) }); toPage(windowState()); return true;
+    case 'scale': saveCfg({ scale: stepped(opt, SCALE, cfg.scale) }); fade.step(() => place()); return true;
+    case 'text': saveCfg({ text: stepped(opt, TEXT, cfg.text) }); fade.step(() => toPage(windowState())); return true;
     case 'lockshrink': saveCfg({ lockShrink: opt === 'on' }); place(); toPage(windowState()); return true;
     case 'opacity': setOpacity(Number(opt)); return true;
     case 'notice': consent.ask({ dir: __dirname, iconDir: ASSETS, title: NOTICE_TITLE, mode: 'view', zoom: baseZoom, avoid: overlayRects }); return false;
@@ -1126,7 +1130,7 @@ if (!app.requestSingleInstanceLock()) {
       enabled: () => cfg.lock === true, save: (on) => saveCfg({ lock: on }),
       appMode: () => appMode,
       blocked: () => !!(ctx && ctx.isOpen()) || isDragging() || sizing || typing,
-      onState: () => { if (cfg.lockShrink) { place(); toPage(windowState()); } },   // 잠금 때 작게
+      onState: () => { if (cfg.lockShrink) fade.step(() => { place(); toPage(windowState()); }); },   // 잠금 때 작게 (eased)
       opacity: () => cfg.opacity || 1, side: () => (cfg.align === 'right' ? 'right' : 'left'),
     });
     // click-through from the cursor position (hitpoll.js) - not from forwarded mouse moves, which
