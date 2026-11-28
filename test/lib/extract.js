@@ -48,8 +48,6 @@ function piece(src, name) {
 
 // module-level objects of main.js a piece may look at that a test need not stand in for: null = not there
 const OPTIONAL = { autostart: null, noGame: null };
-// stand-ins a piece may call that a test need not give: the size-change fade applies at once (fade.js)
-const DEFAULTS = { fade: { step: (f) => f(), busy: () => false } };
 
 // run the pieces with stand-ins (an object of name -> value); -> { api: { name: fn | value }, body }
 function load(file, names, standIns = {}) {
@@ -57,9 +55,8 @@ function load(file, names, standIns = {}) {
   const body = names.map((n) => piece(src, n)).join('\n\n');
   // where the file is, as it would see it (main.js: src/; ROOT the program, ASSETS its icons and sounds)
   const where = { __dirname: path.dirname(file), ROOT: path.join(path.dirname(file), '..'), ASSETS: path.join(path.dirname(file), '..', 'assets') };
-  const all = { ...where, ...OPTIONAL, ...DEFAULTS, ...standIns };
+  const all = { ...where, ...OPTIONAL, ...standIns };
   for (const n of names) if (n in where && !(n in standIns)) delete all[n];
-  for (const n of names) if (n in DEFAULTS && !(n in standIns)) delete all[n];
   for (const n of names) if (n in OPTIONAL && !(n in standIns)) delete all[n];   // extracted itself: not also a parameter
   const keys = Object.keys(all);
   // eslint-disable-next-line no-new-func
