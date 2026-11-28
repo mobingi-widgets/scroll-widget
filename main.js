@@ -522,6 +522,7 @@ function updateVisibility() {
   if (visible && !win.isVisible()) win.showInactive();
   if (!visible && win.isVisible()) win.hide();
   if (visible) raise();
+  if (visible) flushBubble();         // a warning that came while hidden
 }
 
 // ☰ dragged = docking (dock.js, shared with 망호 스캐너: snap lines, no-go zones, push-out).
@@ -832,7 +833,8 @@ function menuAct(id, opt) {
     case 'reset-pos': saveCfg({ ...POS[cfg.align], valign: 'top' }); toPage(windowState()); place(); return false;
     case 'show': setShow(opt); return opt !== 'hidden';
     case 'nogame': if (opt === 'hide' || opt === 'window') { saveCfg({ noGame: opt }); if (noGame) noGame.setting(opt); } return true;
-    case 'autostart': if (autostart) autostart.set(opt === 'on'); return true;
+    // (the menu stays open when it stuck; closes when not, so the bubble under the ☰ shows)
+    case 'autostart': return autostart ? autostart.set(opt === 'on') : false;
     case 'wings':
       sync.wingsReset = opt || null;
       toFeed({ cmd: 'wings_reset', value: opt || null });
@@ -883,6 +885,19 @@ function trayClick() {
   if (cfg.show === 'hidden') setShow(cfg.showBefore || 'always');
   else if (autoHidden()) setShow(cfg.show);
   else setShow('hidden');
+}
+
+// A short warning in the bubble under the ☰ (the "새 버전" pill's place; user 2026-11-28 - autostart.js onFail),
+// kept until the window shows: a start at login may be hidden for want of a game
+let pendingBubble = null;
+function bubble(text, sec = 10) {
+  pendingBubble = { type: 'update-toast', text, level: 'warn', sec };
+  flushBubble();
+}
+function flushBubble() {
+  if (!pendingBubble || !win || win.isDestroyed() || !win.isVisible() || win.webContents.isLoading()) return;
+  toPage(pendingBubble);
+  pendingBubble = null;
 }
 
 function setOpacity(o) {
@@ -1076,6 +1091,7 @@ if (!app.requestSingleInstanceLock()) {
       name: 'mobingi-scroll-widget', installed: () => !fs.existsSync(path.join(__dirname, '.git')),
       exe: () => process.execPath, args: () => [__dirname],
       want: () => cfg.autostart === true, save: (on) => saveCfg({ autostart: on }),
+      onFail: (_kind, text) => bubble(text),     // a write that did not stick (read back)
       login: { get: (o) => app.getLoginItemSettings(o), set: (o) => app.setLoginItemSettings(o) },
     });
     const testRun = !!(SHOT || DEMO || FAKE_GAME || DUMP);

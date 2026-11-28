@@ -320,6 +320,7 @@ function placeBubble() {
   if (b.hidden) return;
   const m = $('menu').getBoundingClientRect();
   const r = $('root').getBoundingClientRect();
+  b.style.left = '0px';                  // measured from the left edge: at its last spot it would shrink to the room right of it
   const w = b.offsetWidth;
   let left = document.body.classList.contains('left') ? m.left - r.left : m.right - r.left - w;
   left = Math.max(2, Math.min(left, r.width - w - 2));

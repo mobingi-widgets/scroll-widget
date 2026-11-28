@@ -108,6 +108,32 @@ app.whenReady().then(async () => {
   m = await layout('bubble-bottom', { align: 'right', valign: 'bottom', expanded: true, short: true, h: 520, pill: true });
   check('bubble above the ☰ (content at the bottom)', m.pill && m.pill.b <= m.menu.t, `pill ${JSON.stringify(m.pill)} menu ${JSON.stringify(m.menu)}`);
 
+  // the warning bubble (main.js bubble <- autostart.js FAIL, 2026-11-28): a message with a line break shows as two
+  // lines, inside the window, on either side and either end (measured from the left edge - at its last spot it
+  // shrank to the room right of it: four lines in 150 px)
+  const { FAIL } = require(path.join(dir, 'autostart.js'));
+  for (const valign of ['top', 'bottom']) {
+    for (const align of ['right', 'left']) {
+      const name = `warn-${align}-${valign}`;
+      await layout(name, { align, valign, expanded: true, short: true, h: 520 });
+      feed({ type: 'update-toast', text: FAIL.add, level: 'warn', sec: 10 });
+      await wait(250);
+      const p = await js(`(() => {
+        const e = document.getElementById('updpill');
+        const b = e.getBoundingClientRect();
+        const rg = document.createRange(); rg.selectNodeContents(e);
+        const lines = new Set([...rg.getClientRects()].map((q) => Math.round(q.top))).size;
+        return { shown: !e.hidden, warn: e.classList.contains('warn'), text: e.innerText, lines, over: e.scrollWidth > e.clientWidth + 1,
+          l: Math.round(b.left), r: Math.round(b.right), t: Math.round(b.top), b: Math.round(b.bottom), vw: innerWidth, vh: innerHeight };
+      })()`);
+      check(`${name}: the warning shows in two lines (the line break kept, as wide as the window lets it)`, p.shown && p.warn && p.lines === 2 && p.text.split('\n').length >= 2, JSON.stringify(p));
+      check(`${name}: ...inside the window, nothing cut off`, p.l >= 0 && p.r <= p.vw && p.t >= 0 && p.b <= p.vh && !p.over, JSON.stringify(p));
+      fs.writeFileSync(path.join(out, `${name}.png`), (await win.webContents.capturePage()).toPNG());
+      feed({ type: 'update-toast', text: '', level: 'info', sec: 0.01 });
+      await wait(60);
+    }
+  }
+
   // reports: keep = the whole window, near includes the bar strips; a press on the height bar
   // hands the drag to main with the area's height as the base
   await layout('reports', { align: 'right', valign: 'bottom', expanded: true, short: true, h: 520, bars: true });

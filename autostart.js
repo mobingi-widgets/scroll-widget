@@ -10,9 +10,15 @@
 // - Every start syncs: on -> registered again when the path or arguments changed (the folder moved, a new
 //   install); off -> an entry pointing at this program is removed.
 // - An update restarts the same exe, so the entry stays right.
+// - Every write is read back (user 2026-11-28): Electron's setLoginItemSettings returns nothing on Windows and a
+//   refused write (security software guarding the Run key, a company / school policy) fails silently. Our
+//   entry (this name, this exe, these arguments) must be there after 네 and gone after 아니오 - Windows "off"
+//   (시작 앱) is not a failure. A failed 네 leaves the setting at 아니오, so the menu shows the truth and no start
+//   retries it silently; onFail says it (the bubble under the ☰). A start whose 네 no longer sticks does the same,
+//   once. Reinstalling elsewhere would not help, so FAIL does not suggest it.
 // create({ name, installed(), exe(), args() (more arguments before FLAG, e.g. the app folder - bare), want(),
-//   save(on), login: { get(opts), set(opts) } (app.getLoginItemSettings / setLoginItemSettings; a stand-in in
-//   tests - never the real registry) }) -> { sync(), set(on), state(), button() }
+//   save(on), onFail(kind: 'add' | 'remove', text), login: { get(opts), set(opts) } (app.getLoginItemSettings /
+//   setLoginItemSettings; a stand-in in tests - never the real registry) }) -> { sync(), set(on), state(), button() }
 'use strict';
 
 const FLAG = '--autostart';
@@ -22,6 +28,11 @@ const samePath = (a, b) => unq(a).replace(/\//g, '\\').toLowerCase() === unq(b).
 // args() are given bare - Electron quotes each one itself (AddQuoteForArg) and hands them back parsed, so they
 // compare as they are: an entry whose arguments carry literal quotes (a wrong one) is written again
 const sameArgs = (a, b) => (a || []).join('\u0001') === (b || []).join('\u0001');
+// what the bubble says when a write did not stick (two short lines)
+const FAIL = {
+  add: '시작 프로그램에 등록하지 못했습니다\n보안 프로그램이나 PC 정책이 막았을 수 있습니다',
+  remove: '시작 프로그램에서 지우지 못했습니다\n보안 프로그램이나 PC 정책이 막았을 수 있습니다',
+};
 
 function create(o) {
   const args = () => [...(o.args ? o.args() : []), FLAG];
@@ -37,29 +48,40 @@ function create(o) {
     if (!s || !s.launchItems) return s && s.openAtLogin ? { args: args(), enabled: s.executableWillLaunchAtLogin !== false } : null;
     return null;
   }
+  // -> did it stick? (read back: our entry there with these arguments / gone; Windows "off" does not count)
   const write = (on, enabled) => {
-    try {
-      o.login.set({ ...opts(), name: o.name, openAtLogin: on, ...(on ? { enabled } : {}) });
-      return true;
-    } catch { return false; }
+    try { o.login.set({ ...opts(), name: o.name, openAtLogin: on, ...(on ? { enabled } : {}) }); } catch { /* read back below */ }
+    const it = item();
+    return on ? !!it && sameArgs(it.args, args()) : !it;
   };
+  const fail = (kind) => { if (o.onFail) o.onFail(kind, FAIL[kind]); };
   // at start: the entry as the setting says, at this exe's path; a Windows "off" is kept
   function sync() {
     if (!o.installed()) return 'source';
     const it = item();
     if (o.want()) {
       if (it && sameArgs(it.args, args())) return 'kept';
-      write(true, it ? it.enabled : true);
-      return 'registered';
+      if (write(true, it ? it.enabled : true)) return 'registered';
+      o.save(false);                     // no silent retry at every start; the menu shows 아니오
+      fail('add');
+      return 'failed';
     }
-    if (it) { write(false); return 'removed'; }
+    if (it) {
+      if (write(false)) return 'removed';
+      fail('remove');
+      return 'failed';
+    }
     return 'none';
   }
-  // the user's click: on also turns back on an entry Windows had turned off
+  // the user's click: on also turns back on an entry Windows had turned off. -> did it stick? (the ☰ menu
+  // closes on a failure, so the bubble under it shows)
   function set(on) {
     o.save(!!on);
-    if (!o.installed()) return;
-    write(!!on, true);
+    if (!o.installed()) return true;
+    if (write(!!on, true)) return true;
+    if (on) o.save(false);
+    fail(on ? 'add' : 'remove');
+    return false;
   }
   // 'on' | 'off' | 'windows-off' (on here, turned off in Windows) | 'source' (not an installed copy)
   function state() {
@@ -83,4 +105,4 @@ function create(o) {
   return { sync, set, state, button };
 }
 
-module.exports = { create, FLAG, quiet };
+module.exports = { create, FLAG, quiet, FAIL };

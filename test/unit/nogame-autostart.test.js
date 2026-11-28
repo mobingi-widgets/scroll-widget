@@ -132,7 +132,10 @@ function splitCmd(cmd) {
   }
   return out;
 }
-function store() {
+// block (a refused write - security software guarding the Run key, a policy; Electron says nothing on Windows):
+// 'all' = every write is ignored, 'add' / 'remove' = only those, 'quote' = written with the arguments quoted again
+// (a wrong value lands)
+function store({ block = '' } = {}) {
   const run = {};               // value name -> { value: the Run command line, enabled: startup-approved }
   const calls = [];
   const norm = (p) => String(p).toLowerCase();
@@ -149,7 +152,8 @@ function store() {
       },
       set: (o) => {
         calls.push(o);
-        if (o.openAtLogin) run[o.name] = { value: formatCmd(o.path, o.args || []), enabled: o.enabled !== false };
+        if (block === 'all' || block === (o.openAtLogin ? 'add' : 'remove')) return;
+        if (o.openAtLogin) run[o.name] = { value: formatCmd(o.path, (o.args || []).map((s) => (block === 'quote' && s.includes(' ') ? `"${s}"` : s))), enabled: o.enabled !== false };
         else delete run[o.name];
       },
     },
@@ -163,9 +167,11 @@ check('(the stand-in) an argument already in quotes comes back WITH them - the b
 const EXE = 'C:\\Games\\망호 스캐너\\망호 스캐너.exe';
 function as({ installed = true, want = false, exe = EXE, args, st = store(), name = 'mobingi-mangho-scanner' } = {}) {
   const cfg = { autostart: want };
+  const fails = [];             // onFail -> the bubble under the ☰ (main.js bubble)
   const a = autostart.create({ name, installed: () => installed, exe: () => exe, ...(args ? { args: () => args } : {}),
-    want: () => cfg.autostart === true, save: (on) => { cfg.autostart = on; }, login: st.login });
-  return { a, st, cfg };
+    want: () => cfg.autostart === true, save: (on) => { cfg.autostart = on; }, login: st.login,
+    onFail: (kind, text) => fails.push({ kind, text }) });
+  return { a, st, cfg, fails };
 }
 let x = as({ installed: false, want: true });
 check('a source copy: sync writes nothing', x.a.sync() === 'source' && x.st.calls.length === 0);
@@ -226,10 +232,83 @@ x = as({ want: true, exe: WEXE, args: [WDIR], name: 'mobingi-scroll-widget' });
 x.st.put('mobingi-scroll-widget', WEXE, [`"${WDIR}"`, '--autostart']);
 check('an entry written with the folder pre-quoted: its argument carries literal quotes (the app could not be found)', x.st.entry('mobingi-scroll-widget').args[0] === `"${WDIR}"`);
 check('...a start sees it differs and writes it right', x.a.sync() === 'registered' && JSON.stringify(x.st.entry('mobingi-scroll-widget').args) === JSON.stringify([WDIR, '--autostart']));
-// a login store that throws (registry blocked): off, and nothing breaks
-x = as({ want: true, st: { run: {}, calls: [], login: { get: () => { throw new Error('denied'); }, set: () => { throw new Error('denied'); } } } });
-check('the login store fails: no throw, state off', x.a.sync() === 'registered' && x.a.state() === 'off');
 check('quiet(argv): the flag', autostart.quiet(['x.exe', '--autostart']) && !autostart.quiet(['x.exe']) && !autostart.quiet(undefined) && autostart.FLAG === '--autostart');
+
+// ---- a write that does not stick (user 2026-11-28): read back, the setting stays 아니오, the bubble says it once
+const { FAIL } = autostart;
+check('the bubble texts: two short lines, the likely cause, no "install again" (it would not help)',
+  ['add', 'remove'].every((k) => FAIL[k].split('\n').length === 2 && /보안 프로그램이나 PC 정책/.test(FAIL[k]) && !/설치/.test(FAIL[k])) && /등록하지 못했/.test(FAIL.add) && /지우지 못했/.test(FAIL.remove));
+x = as({ st: store({ block: 'all' }) });
+check('blocked, click 네: answers "not done" (the menu closes, the bubble shows)', x.a.set(true) === false);
+check('...the setting stays 아니오 (no silent retry at every start), the menu says 아니오', x.cfg.autostart === false && x.a.state() === 'off' && !x.a.button().on);
+check('...one bubble: 시작 프로그램에 등록하지 못했습니다', x.fails.length === 1 && x.fails[0].kind === 'add' && x.fails[0].text === FAIL.add, JSON.stringify(x.fails));
+// a start that wants it (an older version saved 네, or the entry went missing) and cannot write it
+x = as({ want: true, st: store({ block: 'add' }) });
+check('blocked at start, 네 saved: sync -> failed, the setting turned 아니오, the bubble once', x.a.sync() === 'failed' && x.cfg.autostart === false && x.fails.length === 1 && x.fails[0].kind === 'add');
+check('...the next start: nothing to do, no second bubble', x.a.sync() === 'none' && x.fails.length === 1);
+// a moved folder whose new entry is refused: the old one is still there, pointing elsewhere
+x = as({ want: true, st: store({ block: 'add' }) });
+x.st.put('mobingi-mangho-scanner', 'D:\\old place\\망호 스캐너.exe', ['--autostart']);
+check('moved folder, the new entry refused: failed, 아니오, the bubble', x.a.sync() === 'failed' && x.cfg.autostart === false && x.fails.length === 1);
+// a value that lands wrong (the arguments quoted again) is not "registered"
+x = as({ want: true, exe: WEXE, args: [WDIR], name: 'mobingi-scroll-widget', st: store({ block: 'quote' }) });
+check('a value written wrong (the folder with quotes in it): read back as a failure', x.a.sync() === 'failed' && x.fails.length === 1 && x.cfg.autostart === false);
+// removing refused
+x = as({ want: false, st: store({ block: 'remove' }) });
+x.st.put('mobingi-mangho-scanner', EXE, ['--autostart']);
+check('blocked removal at start (setting 아니오, an entry left): failed, the bubble (지우지 못했습니다)', x.a.sync() === 'failed' && x.fails.length === 1 && x.fails[0].kind === 'remove' && x.fails[0].text === FAIL.remove);
+check('...the menu shows the truth: the entry is still there (네)', x.a.state() === 'on');
+x.fails.length = 0;
+check('...click 아니오: not done, the setting 아니오, the bubble again', x.a.set(false) === false && x.cfg.autostart === false && x.fails.length === 1 && x.fails[0].kind === 'remove');
+// Windows "off" is not a failure
+x = as({ want: true });
+x.st.put('mobingi-mangho-scanner', EXE, ['--old'], false);
+check('Windows had it off, the arguments changed: written again, still off - no bubble', x.a.sync() === 'registered' && x.fails.length === 0 && x.a.state() === 'windows-off');
+x = as({ want: true });
+x.st.put('mobingi-mangho-scanner', EXE, ['--autostart'], false);
+check('Windows off, arguments right: kept, no bubble', x.a.sync() === 'kept' && x.fails.length === 0);
+check('...click 네 turns it on again: no bubble', x.a.set(true) === true && x.a.state() === 'on' && x.fails.length === 0);
+check('a working store: click 네 / 아니오 answer "done", no bubble', (x = as()).a.set(true) === true && x.a.set(false) === true && x.fails.length === 0);
+// a login store that throws (registry blocked): nothing breaks, it says so
+x = as({ want: true, st: { run: {}, calls: [], login: { get: () => { throw new Error('denied'); }, set: () => { throw new Error('denied'); } } } });
+check('the login store throws: no throw, failed, 아니오, the bubble', x.a.sync() === 'failed' && x.a.state() === 'off' && x.cfg.autostart === false && x.fails.length === 1);
+x = as({ installed: false });
+check('a source copy: a click never fails (writes nothing), no bubble', x.a.set(true) === true && x.fails.length === 0);
+
+// ---- main.js: the bubble under the ☰ (both apps) - kept until the overlay shows (a login start may be hidden
+// for want of a game, and sync() runs before the window is made), then sent once
+const fs = require('fs');
+const { load } = require('../lib/extract');
+const MAIN = path.join(dir, 'main.js');
+const src = fs.readFileSync(MAIN, 'utf8');
+check('main.js: autostart.create gets onFail -> bubble(text)', /onFail: \(_kind, text\) => bubble\(text\)/.test(src));
+const sent = [];
+const W = { visible: false, loading: false, isDestroyed: () => false, isVisible() { return this.visible; }, showInactive() { this.visible = true; }, hide() { this.visible = false; },
+  webContents: { isLoading: () => W.loading } };
+let hidden = true;
+const { api: mb } = load(MAIN, ['pendingBubble', 'bubble', 'flushBubble', 'updateVisibility'], {
+  win: W, toPage: (m) => sent.push(m), hiddenNow: () => hidden, appMode: false, cfg: { show: 'always' }, game: {}, SHOT: null, DEMO: null, raise: () => {},
+});
+mb.bubble(FAIL.add);
+check('hidden (at login, no game): the bubble waits', sent.length === 0);
+mb.updateVisibility();
+check('...still hidden: still waits', sent.length === 0 && !W.visible);
+hidden = false;
+W.loading = true;
+mb.updateVisibility();
+check('...shown while the page still loads: waits for it', sent.length === 0 && W.visible);
+W.loading = false;
+mb.updateVisibility();                 // (did-finish-load ends with place() -> updateVisibility())
+check('...shown, loaded: sent once - a warning in the pill\'s place, 10 s', sent.length === 1 && sent[0].type === 'update-toast' && sent[0].level === 'warn' && sent[0].text === FAIL.add && sent[0].sec === 10, JSON.stringify(sent));
+mb.updateVisibility();
+mb.flushBubble();
+check('...not again', sent.length === 1);
+mb.bubble(FAIL.remove);
+check('shown: a new one goes at once', sent.length === 2 && sent[1].text === FAIL.remove);
+const { api: mb0 } = load(MAIN, ['pendingBubble', 'bubble', 'flushBubble'], { win: null, toPage: (m) => sent.push(m) });
+let threw = false;
+try { mb0.bubble('x'); mb0.flushBubble(); } catch { threw = true; }
+check('no window yet (sync() runs before it is made): no throw, nothing sent', !threw && sent.length === 2);
 
 console.log(`${n} checks`);
 console.log(ok ? 'ALL OK' : 'SOME FAILED');

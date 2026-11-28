@@ -258,6 +258,8 @@ body.moving #menu, #menu:active { cursor: grabbing; }
 .updpill:hover::before { border-bottom-color: #34d399; }
 .updpill[hidden] { display: none; }
 .updpill.toast { background: rgba(30, 34, 40, .95); border: 1px solid var(--line); }
+/* a message may have two lines (a line break in it - autostart.js FAIL) and never runs past the window */
+.updpill.toast { white-space: pre-line; max-width: calc(100vw - 16px); }
 .updpill.toast::before { border-bottom-color: rgba(30, 34, 40, .95); }
 .updpill.toast.warn { border-color: var(--red); color: #ffd0cb; }
 @keyframes pulse { 50% { filter: brightness(1.35); } }
