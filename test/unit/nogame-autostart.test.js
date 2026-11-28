@@ -132,6 +132,24 @@ function splitCmd(cmd) {
   }
   return out;
 }
+// What Electron reports as an entry's arguments (2026-11-28): Chromium's base::CommandLine from the value, then
+// GetArgs() - AppendSwitchesAndArguments puts every switch ("--x", "-x", "/x" on Windows: a prefix and more after
+// it; whitespace trimmed) among the switches, wherever it stands, until a "--" ends switch parsing; GetArgs returns
+// the rest without the first "--". So "--autostart" is never there (1.13.0 / 1.9.0 compared with it).
+// Written here from base/command_line.cc, not from autostart.js.
+function getArgs(argv) {
+  const args = [];
+  let parse = true;
+  for (const raw of argv) {
+    const a = raw.trim();
+    parse = parse && a !== '--';
+    const prefix = ['--', '-', '/'].find((x) => a.startsWith(x)) || '';
+    if (!(parse && prefix && a.length > prefix.length)) args.push(a);
+  }
+  const i = args.indexOf('--');
+  if (i >= 0) args.splice(i, 1);
+  return args;
+}
 // block (a refused write - security software guarding the Run key, a policy; Electron says nothing on Windows):
 // 'all' = every write is ignored, 'add' / 'remove' = only those, 'quote' = written with the arguments quoted again
 // (a wrong value lands)
@@ -145,10 +163,10 @@ function store({ block = '' } = {}) {
     entry: (name) => entries().find((e) => e.name === name) || null,
     put: (name, exe, args, enabled = true) => { run[name] = { value: formatCmd(exe, args), enabled }; },
     login: {
-      get: ({ path: p, args }) => {
-        const items = entries().filter((e) => norm(e.path) === norm(p));
-        return { openAtLogin: items.some((e) => e.args.join('\u0001') === (args || []).join('\u0001')),
-          executableWillLaunchAtLogin: items.some((e) => e.enabled), launchItems: items };
+      // Electron's launchItems: each value parsed by Chromium's CommandLine, args = GetArgs() (no switches)
+      get: ({ path: p }) => {
+        const items = entries().filter((e) => norm(e.path) === norm(p)).map((e) => ({ ...e, args: getArgs(e.args) }));
+        return { openAtLogin: false, executableWillLaunchAtLogin: items.some((e) => e.enabled), launchItems: items };
       },
       set: (o) => {
         calls.push(o);
@@ -202,9 +220,9 @@ x = as({ want: true });
 x.st.put('mobingi-mangho-scanner', 'D:\\old place\\망호 스캐너.exe', ['--autostart']);
 check('moved folder: registered again at this exe (the same name - one entry)', x.a.sync() === 'registered'
   && x.st.entry('mobingi-mangho-scanner').path === EXE && Object.keys(x.st.run).length === 1);
-// Windows-off and the arguments changed: written again, still off
+// Windows-off and the (plain) arguments changed: written again, still off
 x = as({ want: true });
-x.st.put('mobingi-mangho-scanner', EXE, ['--old'], false);
+x.st.put('mobingi-mangho-scanner', EXE, ['old-arg'], false);     // (a plain argument: Electron shows no switches)
 e = null;
 check('arguments changed while Windows had it off: written again, still off', x.a.sync() === 'registered' && (e = x.st.entry('mobingi-mangho-scanner')).enabled === false
   && e.args.join() === '--autostart');
@@ -262,7 +280,7 @@ x.fails.length = 0;
 check('...click 아니오: not done, the setting 아니오, the bubble again', x.a.set(false) === false && x.cfg.autostart === false && x.fails.length === 1 && x.fails[0].kind === 'remove');
 // Windows "off" is not a failure
 x = as({ want: true });
-x.st.put('mobingi-mangho-scanner', EXE, ['--old'], false);
+x.st.put('mobingi-mangho-scanner', EXE, ['old-arg'], false);     // (a plain argument: Electron shows no switches)
 check('Windows had it off, the arguments changed: written again, still off - no bubble', x.a.sync() === 'registered' && x.fails.length === 0 && x.a.state() === 'windows-off');
 x = as({ want: true });
 x.st.put('mobingi-mangho-scanner', EXE, ['--autostart'], false);
@@ -274,6 +292,32 @@ x = as({ want: true, st: { run: {}, calls: [], login: { get: () => { throw new E
 check('the login store throws: no throw, failed, 아니오, the bubble', x.a.sync() === 'failed' && x.a.state() === 'off' && x.cfg.autostart === false && x.fails.length === 1);
 x = as({ installed: false });
 check('a source copy: a click never fails (writes nothing), no bubble', x.a.set(true) === true && x.fails.length === 0);
+
+// ---- the entries as they are on a PC (2026-11-28: Electron 45 read the user's Run value and reported args [])
+check('(the stand-in) Chromium GetArgs: switches go wherever they stand, a "--" ends them and goes, "-" alone stays',
+  JSON.stringify(getArgs(['--a', 'D:\\a b', '-b', '/c', '-', '--', '--d', '--'])) === JSON.stringify(['D:\\a b', '-', '--d', '--']));
+check('autostart.plainArgs is the same reading', [['--autostart'], ['D:\\a b', '--autostart'], ['--x', 'p', '/y', '--', '-z'], ['-', ' q '], []]
+  .every((l) => JSON.stringify(autostart.plainArgs(l)) === JSON.stringify(getArgs(l))));
+const REAL_EXE = 'D:\\Program\\망호 스캐너\\망호 스캐너.exe';
+x = as({ want: true, exe: REAL_EXE });
+x.st.run['mobingi-mangho-scanner'] = { value: `"${REAL_EXE}" --autostart`, enabled: true };
+check('the scanner\'s real entry: Electron reports args [] (no --autostart)', JSON.stringify(x.st.login.get({ path: REAL_EXE }).launchItems[0].args) === '[]');
+check('...a start keeps it: no rewrite, no bubble, the setting stays 네 (1.13.0: a failure, 아니오, removed next start)',
+  x.a.sync() === 'kept' && x.st.calls.length === 0 && x.fails.length === 0 && x.cfg.autostart === true && x.a.state() === 'on');
+check('...click 네 again: done, no bubble', x.a.set(true) === true && x.fails.length === 0 && x.cfg.autostart === true);
+x = as({ want: false, exe: REAL_EXE });
+x.a.set(true);
+check('a fresh 네 on the scanner: registered and read back as done (the value carries --autostart)', x.cfg.autostart === true && x.fails.length === 0
+  && x.st.run['mobingi-mangho-scanner'].value === `"${REAL_EXE}" --autostart`);
+const REAL_DIR = 'D:\\Program\\주간 납품 위젯';
+const REAL_ELECTRON = `${REAL_DIR}\\node_modules\\electron\\dist\\electron.exe`;
+x = as({ want: true, exe: REAL_ELECTRON, args: [REAL_DIR], name: 'mobingi-scroll-widget' });
+x.st.run['mobingi-scroll-widget'] = { value: `"${REAL_ELECTRON}" "${REAL_DIR}" --autostart`, enabled: true };
+check('the widget\'s entry: Electron reports [the folder]', JSON.stringify(x.st.login.get({ path: REAL_ELECTRON }).launchItems[0].args) === JSON.stringify([REAL_DIR]));
+check('...a start keeps it, a click is done, no bubble', x.a.sync() === 'kept' && x.a.set(true) === true && x.fails.length === 0 && x.cfg.autostart === true);
+x = as({ want: false, exe: REAL_EXE });
+x.st.run['mobingi-mangho-scanner'] = { value: `"${REAL_EXE}" --autostart`, enabled: true };
+check('click 아니오 with the real entry: removed, read back as done', x.a.set(false) === true && !x.st.run['mobingi-mangho-scanner'] && x.fails.length === 0);
 
 // ---- main.js: the bubble under the ☰ (both apps) - kept until the overlay shows (a login start may be hidden
 // for want of a game, and sync() runs before the window is made), then sent once

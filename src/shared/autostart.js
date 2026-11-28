@@ -28,6 +28,22 @@ const samePath = (a, b) => unq(a).replace(/\//g, '\\').toLowerCase() === unq(b).
 // args() are given bare - Electron quotes each one itself (AddQuoteForArg) and hands them back parsed, so they
 // compare as they are: an entry whose arguments carry literal quotes (a wrong one) is written again
 const sameArgs = (a, b) => (a || []).join('\u0001') === (b || []).join('\u0001');
+// What Electron reports of an entry's arguments (launchItems[].args) is Chromium's CommandLine::GetArgs: the
+// switches are not among them - "--x", "-x", "/x" on Windows, wherever they stand, until a "--" (which goes too).
+// So FLAG never shows: 1.13.0 / 1.9.0 compared with it and took every good write for a failure (2026-11-28 -
+// the entry was there, the setting went back to 아니오, the next start removed it). The entry is ours (our name,
+// this exe), written by Electron from our arguments: compare what can be seen, the plain arguments.
+function plainArgs(list) {
+  const out = [];
+  let switches = true;
+  for (const raw of list || []) {
+    const a = String(raw).trim();
+    if (switches && a === '--') { switches = false; continue; }
+    if (switches && /^(--|-|\/)./.test(a)) continue;
+    out.push(a);
+  }
+  return out;
+}
 // what the bubble says when a write did not stick (two short lines)
 const FAIL = {
   add: '시작 프로그램에 등록하지 못했습니다\n보안 프로그램이나 PC 정책이 막았을 수 있습니다',
@@ -37,6 +53,7 @@ const FAIL = {
 function create(o) {
   const args = () => [...(o.args ? o.args() : []), FLAG];
   const opts = () => ({ path: o.exe(), args: args() });
+  const seen = () => plainArgs(args());           // what Electron will report of our entry
   // this program's entry: by its name among the entries that start this exe (Electron lists only those)
   function item() {
     let s;
@@ -45,14 +62,14 @@ function create(o) {
     const it = list.find((x) => String(x.name || '').toLowerCase() === o.name.toLowerCase() && samePath(x.path, o.exe()));
     if (it) return { args: it.args || [], enabled: it.enabled !== false };
     // (no launchItems in this Electron: the summary flags, for this exe with these arguments)
-    if (!s || !s.launchItems) return s && s.openAtLogin ? { args: args(), enabled: s.executableWillLaunchAtLogin !== false } : null;
+    if (!s || !s.launchItems) return s && s.openAtLogin ? { args: seen(), enabled: s.executableWillLaunchAtLogin !== false } : null;
     return null;
   }
   // -> did it stick? (read back: our entry there with these arguments / gone; Windows "off" does not count)
   const write = (on, enabled) => {
     try { o.login.set({ ...opts(), name: o.name, openAtLogin: on, ...(on ? { enabled } : {}) }); } catch { /* read back below */ }
     const it = item();
-    return on ? !!it && sameArgs(it.args, args()) : !it;
+    return on ? !!it && sameArgs(it.args, seen()) : !it;
   };
   const fail = (kind) => { if (o.onFail) o.onFail(kind, FAIL[kind]); };
   // at start: the entry as the setting says, at this exe's path; a Windows "off" is kept
@@ -60,7 +77,7 @@ function create(o) {
     if (!o.installed()) return 'source';
     const it = item();
     if (o.want()) {
-      if (it && sameArgs(it.args, args())) return 'kept';
+      if (it && sameArgs(it.args, seen())) return 'kept';
       if (write(true, it ? it.enabled : true)) return 'registered';
       o.save(false);                     // no silent retry at every start; the menu shows 아니오
       fail('add');
@@ -105,4 +122,4 @@ function create(o) {
   return { sync, set, state, button };
 }
 
-module.exports = { create, FLAG, quiet, FAIL };
+module.exports = { create, FLAG, quiet, FAIL, plainArgs };
