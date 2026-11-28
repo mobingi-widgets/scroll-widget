@@ -1,6 +1,7 @@
 /* lock.css - 잠금 (lock.js / lock-ui.js; same file in both overlays). Locked: the list (#root) dims
-   (--lock-dim: half the 투명도, against the window's own opacity); the 🔒 hint over it. (Not the
-   area's outline: it has its own opacity, 0 until shown.) */
+   (--lock-dim: half the 투명도, against the window's own opacity; the pointer resting on it takes it to
+   about 0.1 on the screen - 2026-11-28 - and the small 🔒 on the ☰, outside #root, stays at the locked
+   strength); the 🔒 hint over it. (Not the area's outline: it has its own opacity, 0 until shown.) */
 body.locked #root { opacity: var(--lock-dim, .5); transition: opacity .25s; }
 
 #lockhint {

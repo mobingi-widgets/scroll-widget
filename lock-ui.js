@@ -1,9 +1,10 @@
 // lock-ui.js - the page side of lock.js (same file in both overlays). Reports the visible list's
 // rectangles (the selector in this script tag's data-bound; hitrects.js does the watching) and,
-// from lock.js's 'lock' messages, dims the list and shows the 🔒 over it:
-//   big   - centred on the list, with how to unlock; wiggles with each shake swing
-//   small - a small 🔒 on the ☰ (data-small; it cannot be clicked while locked anyway), else in
-//           the list's top corner - the list stays readable
+// from lock.js's 'lock' messages, dims the list (--lock-dim: locked, or faded almost away while the
+// pointer rests on it - 2026-11-28) and shows the 🔒 over it:
+//   big   - while shaking: centred on the list, with how to unlock; wiggles with each shake swing
+//   small - while faded: a small 🔒 on the ☰ (data-small; it cannot be clicked while locked anyway),
+//           else in the list's top corner - outside #root, so it keeps the locked strength
 //   🔓    - the moment it unlocks: in the 🔒's place on the same soft background, fading out
 // The hint never takes the mouse (the window passes it through while locked anyway).
 // A compact bound (망호 스캐너 잠금 때 매우 작게, 1.10.0 - the tile): an element marked data-lock-compact

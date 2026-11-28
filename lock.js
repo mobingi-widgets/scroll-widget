@@ -4,21 +4,27 @@
 // size bars, no clicks). Shaking the mouse over the list unlocks it; so does 잠금 해제 in the
 // tray (the way out when the game holds the cursor). It is a mode: leave again -> 3 s -> locked.
 //
-// While locked, the pointer resting on the list for 0.3 s shows a big 🔒 with how to unlock;
-// after 2 s without shaking it shrinks to a small 🔒 on the ☰, so the list stays readable. Both
-// show through like the locked list, a little less (1.9.1). The page side is lock-ui.js + lock.css,
-// with the switch: a padlock button at the start of the header (dim and open = off, bright and
-// closed = on).
+// While locked, the pointer resting on the list for 0.15 s fades it almost away (user 2026-11-28 - lock means
+// "don't disturb my game": a pointer coming onto it wants to see or click the game UI under it, or to unlock);
+// a sweep across it in play does nothing. Only a small 🔒 on the ☰ stays, at the locked strength, so the lock
+// and its place stay findable. The pointer gone 0.5 s -> back to the locked dim. Shaking: the first good swing
+// brings the big 🔒 with how to unlock ("keep shaking"); a shake that stops falls back after 2 s; a whole
+// shake unlocks. (This reverses 1.9.x, where the locked list stayed readable under a resting pointer and the
+// big 🔒 came after 0.3 s of resting - a locked list is now read without the pointer on it.) The page side is
+// lock-ui.js + lock.css, with the switch: a padlock button at the start of the header (dim and open = off,
+// bright and closed = on).
 //
 // Everything runs off hitpoll.js's 30 ms poll (sample): the same cursor position that decides
 // click-through, so it works while the game (run as administrator) is in front.
 'use strict';
 
 const LEAVE_MS = 3000;      // off the list this long -> locked
-const HINT_MS = 300;        // locked, on the list this long -> the big 🔒
-const BIG_MS = 2000;        // no shake this long -> the small 🔒
+const DWELL_MS = 150;       // locked, on the list this long -> faded (a sweep across it is shorter)
+const BACK_MS = 500;        // faded, off the list this long -> back to the locked dim
+const BIG_MS = 2000;        // the big 🔒 this long after the last shake swing
 const UNLOCK_MS = 600;      // the 🔓 moment
 const DIM = 0.5;            // locked: this times the 투명도
+const FADE = 0.1;           // faded: about this, on the screen (the 투명도 included) - never 0, never above DIM
 
 // A shake: >= 4 horizontal turns within 600 ms, each swing between turns >= 40 DIP and mostly
 // sideways (its up-and-down travel at most 0.6 x its width: a circle is not a shake). A turn
@@ -73,11 +79,13 @@ const inRect = (p, r, m = 0) => !!r && p.x >= r.x - m && p.y >= r.y - m && p.x <
 function create(o) {
   const now = o.now || (() => Date.now());
   let state = 'open';       // 'open' | 'locked' | 'unlocking'
-  let hint = 'none';        // locked: 'none' | 'big' | 'small'
+  let hint = 'none';        // locked: 'none' | 'big' (shaking) | 'small' (faded: the 🔒 on the ☰)
   let wiggle = 0;           // shake progress (the page wiggles the 🔒 per step)
   let leftAt = null;        // off the list since
   let onAt = null;          // locked, on the list since
-  let bigAt = null;         // the big 🔒 since (or its last shake step)
+  let offAt = null;         // faded, off the list since
+  let faded = false;        // locked and the pointer resting on it: the list almost away
+  let bigAt = null;         // the big 🔒's last shake step
   let unlockAt = null;
   let bound = [];           // the visible list: rectangles in CSS px of the page (lock-ui.js)
   let sent = '';
@@ -98,15 +106,17 @@ function create(o) {
 
   // the window's opacity and what the page shows. The window always keeps the 투명도; locked, the
   // page halves the list and the 🔒 hints show through about as much (lock.css - user 2026-11-27,
-  // 1.9.1: a solid card over the dimmed list defeated the point). Unlocking, the list eases back to
-  // its normal look in the page while the 🔓 takes the 🔒's place on the same soft background and
-  // fades out (1.9.3: no window opacity jump, no card). A plain window (no game) is main's.
+  // 1.9.1: a solid card over the dimmed list defeated the point). Faded (the pointer resting on it),
+  // the page takes the list down to FADE on the screen - in the page, not the window, so the small 🔒
+  // on the ☰ keeps the locked strength. Unlocking, the list eases back to its normal look in the page
+  // while the 🔓 takes the 🔒's place on the same soft background and fades out (1.9.3: no window
+  // opacity jump, no card). A plain window (no game) is main's.
   function look() {
     const plain = o.appMode();
     const op = Number(o.opacity()) || 1;
     const winOp = plain ? null : op;
-    const dim = plain ? 1 : state === 'locked' ? DIM : 1;
-    const msg = { type: 'lock', on: !!o.enabled(), state, hint, wiggle, dim: Math.round(dim * 1000) / 1000, side: o.side() };
+    const dim = plain ? 1 : state === 'locked' ? (faded ? Math.min(DIM, FADE / op) : DIM) : 1;
+    const msg = { type: 'lock', on: !!o.enabled(), state, hint, wiggle, faded: state === 'locked' && faded, dim: Math.round(dim * 1000) / 1000, side: o.side() };
     const key = JSON.stringify([winOp, msg]);
     if (key === sent) return;
     sent = key;
@@ -120,6 +130,8 @@ function create(o) {
     hint = s === 'locked' ? hint : 'none';
     leftAt = null;
     onAt = null;
+    offAt = null;
+    faded = false;
     shake.reset();
     // main.js shrinks the overlay while locked (잠금 때 작게, 1.10.0 / 1.7.0): in the same step as the
     // dimming (look() follows in this sample), and back to full size the moment it unlocks
@@ -142,11 +154,11 @@ function create(o) {
     } else if (state === 'unlocking') {
       if (t - unlockAt >= UNLOCK_MS) to('open');
     } else {
+      // shaking: over the list or near it (a wide shake may cross its edge)
       const near = inRect(p, b, SHAKE.margin);
       if (!near) {
         shake.reset();
-        onAt = null;
-        hint = 'none';
+        if (hint === 'big') hint = 'none';
       } else {
         const r = shake.feed(p, t);
         if (r === 'done') {
@@ -155,11 +167,21 @@ function create(o) {
           look();
           return;
         }
-        if (r === 'step') { wiggle++; hint = 'big'; bigAt = t; }
-        if (on && onAt == null) onAt = t;
-        if (hint === 'none' && onAt != null && t - onAt >= HINT_MS) { hint = 'big'; bigAt = t; }
-        else if (hint === 'big' && t - bigAt >= BIG_MS) hint = 'small';
+        if (r === 'step') { wiggle++; hint = 'big'; bigAt = t; }     // "keep shaking"
       }
+      // resting: on the list DWELL_MS -> faded; off it BACK_MS -> back (a sweep across does nothing)
+      if (on) {
+        offAt = null;
+        if (onAt == null) onAt = t;
+        if (!faded && t - onAt >= DWELL_MS) faded = true;
+      } else {
+        onAt = null;
+        if (faded && offAt == null) offAt = t;
+        else if (faded && t - offAt >= BACK_MS) { faded = false; offAt = null; }
+      }
+      // the big 🔒 while shaking (BIG_MS after its last swing), else the small one while faded
+      if (hint === 'big' && t - bigAt >= BIG_MS) hint = 'none';
+      if (hint !== 'big') hint = faded ? 'small' : 'none';
     }
     look();
   }
@@ -202,8 +224,8 @@ function create(o) {
     sample, setBound, unlock, toggle, topItems, menuAct,
     locked: () => state !== 'open',
     shrunk: () => state === 'locked',            // (not while the 🔓 shows: that is on the full-size list)
-    state: () => ({ state, hint, wiggle }),
+    state: () => ({ state, hint, wiggle, faded }),
   };
 }
 
-module.exports = { create, shakeDetector, SHAKE, LEAVE_MS, HINT_MS, BIG_MS, UNLOCK_MS, DIM };
+module.exports = { create, shakeDetector, SHAKE, LEAVE_MS, DWELL_MS, BACK_MS, BIG_MS, UNLOCK_MS, DIM, FADE };
