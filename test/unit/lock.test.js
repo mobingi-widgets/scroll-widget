@@ -71,8 +71,8 @@ const no = [
   ['circles r 40 · 240 ms, 5 turns', circles(500, 300, 40, 240, 5)],
   ['jitter 30 DIP, fast, 10 turns', shake(500, 300, 10, 30, 90)],
   ['jitter 38 DIP, fast, 10 turns', shake(500, 300, 10, 38, 90)],
-  ['a fast vertical shake', strokes(500, 300, [500, 500, 500, 500, 500, 500], 110, { ys: [230, 370, 230, 370, 230, 300] })],
-  ['a diagonal zig-zag (steep)', strokes(500, 300, [540, 460, 540, 460, 540, 500], 110, { ys: [220, 380, 220, 380, 220, 300] })],
+  ['a fast vertical shake (the side-to-side detector alone)', strokes(500, 300, [500, 500, 500, 500, 500, 500], 110, { ys: [230, 370, 230, 370, 230, 300] })],
+  ['a diagonal zig-zag (steep; the side-to-side detector alone)', strokes(500, 300, [540, 460, 540, 460, 540, 500], 110, { ys: [220, 380, 220, 380, 220, 300] })],
 ];
 for (const [what, tr] of no) check(`${what} -> stays locked`, !detects(tr).done);
 
@@ -256,6 +256,62 @@ const quiet = m.msgs.length === n0;
 m.lock.setBound([[0, 0, 300, 400]], true);
 m.at(OUT, 60);
 check('no repeats; a reloaded page is told the state again', quiet && m.msgs.length === n0 + 1);
+
+// ---- up and down too (user 2026-11-28: docked at an edge, a sideways shake runs into it): the same rule per axis
+const flip = (trace) => trace.map((p) => ({ x: p.y, y: p.x, t: p.t }));
+const vshake = (cx, cy, n, amp, ms) => flip(shake(cy, cx, n, amp, ms));          // around (cx, cy), up and down
+const either = (trace) => {
+  const d = L.shakeEither();
+  const axes = [];
+  for (const p of trace) {
+    const r = d.feed(p, p.t);
+    if (r.r === 'step') axes.push(r.axis);
+    if (r.r === 'done') return { done: true, axis: r.axis, axes };
+  }
+  return { done: false, axes };
+};
+const alone = (trace, axis) => { const d = L.shakeDetector(L.SHAKE, axis); return trace.some((p) => d.feed(p, p.t) === 'done'); };
+for (const [n, amp, ms] of [[4, 60, 120], [4, 200, 150], [5, 100, 110], [6, 150, 130], [6, 60, 100]]) {
+  const r = either(vshake(500, 300, n, amp, ms));
+  check(`up and down ${n} turns · ${amp} DIP · ${ms} ms a swing -> unlocks (axis y)`, r.done && r.axis === 'y' && r.axes.length >= 1 && r.axes.every((a) => a === 'y'), JSON.stringify(r));
+}
+check('...the up-and-down detector sees it, the side-to-side one does not', alone(vshake(500, 300, 5, 100, 110), 'y') && !alone(vshake(500, 300, 5, 100, 110), 'x'));
+const hz = either(shake(500, 300, 5, 100, 110));
+check('side to side still unlocks through both (axis x)', hz.done && hz.axis === 'x' && hz.axes.every((a) => a === 'x'), JSON.stringify(hz));
+const vno = [
+  ['one wide vertical swipe 260 DIP', flip(strokes(300, 500, [560], 220))],
+  ['a vertical swipe there and back', flip(strokes(300, 500, [560, 300], 200))],
+  ['slow up and down (reading) 150 DIP · 900 ms a swing', vshake(500, 300, 8, 150, 900)],
+  ['vertical jitter 30 DIP, fast', vshake(500, 300, 10, 30, 90)],
+  ['circles r 60 · 360 ms, 4 turns', circles(500, 300, 60, 360, 4)],
+  ['circles r 100 · 300 ms, 4 turns', circles(500, 300, 100, 300, 4)],
+  ['a diagonal zig-zag (45°)', strokes(500, 300, [550, 450, 550, 450, 550, 500], 110, { ys: [350, 250, 350, 250, 350, 300] })],
+  ['a diagonal zig-zag (the other way, 45°)', strokes(500, 300, [550, 450, 550, 450, 550, 500], 110, { ys: [250, 350, 250, 350, 250, 300] })],
+];
+for (const [what, tr] of vno) { const r = either(tr); check(`${what} -> stays locked on both axes`, !r.done, JSON.stringify(r)); }
+// the state machine: an up-and-down shake over the list -> the big 🔒 wiggling up and down -> unlocked
+m = machine();
+m.at(OUT, 3200);
+check('(locked again)', m.lock.locked());
+m.msgs.length = 0;
+m.run(vshake(1150, 300, 2, 150, 120));
+check('up and down, the first good swing -> the big 🔒, wiggling that way (axis y)', m.last().hint === 'big' && m.last().wiggle >= 1 && m.last().axis === 'y', JSON.stringify(m.last()));
+m.run(vshake(1150, 300, 5, 150, 120));
+check('...a whole shake up and down -> unlocking, then open', m.lock.state().state === 'unlocking' || !m.lock.locked(), JSON.stringify(m.lock.state()));
+m.at(IN, 700);
+check('...open', !m.lock.locked());
+m.at(OUT, 3200);
+m.msgs.length = 0;
+m.run(shake(1150, 300, 2, 150, 120));
+check('side to side again: the wiggle goes back to that way (axis x)', m.last().hint === 'big' && m.last().axis === 'x', JSON.stringify(m.last()));
+// 매우 작게: the tile is 120 x 120 DIP at 100% - an up-and-down shake over it (the margin lets it cross its edges)
+m = machine();
+m.lock.setBound([[0, 0, 120, 120]], true);                     // the tile: 1000..1120 x 100..220
+m.at({ x: 1300, y: 600 }, 3200);
+check('(the tile, locked)', m.lock.locked());
+m.run(vshake(1060, 160, 6, 160, 120));
+m.at({ x: 1060, y: 160 }, 700);
+check('an up-and-down shake on the 매우 작게 tile (120 DIP, swings past its edges) unlocks it', !m.lock.locked(), JSON.stringify(m.lock.state()));
 
 // ---- hitpoll: sample every poll; locked -> the mouse passes, bars away
 const hitpoll = require(path.join(dir, 'src', 'shared', 'hitpoll.js'));

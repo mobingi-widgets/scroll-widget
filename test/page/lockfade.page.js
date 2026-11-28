@@ -85,26 +85,51 @@ async function form(label, dir, kind, opt) {
   s = await look();
   check(`${label}: off it 0.5 s -> back to half, the 🔒 gone`, Math.abs(s.root - 0.5) < 0.02 && s.hint === 'none', JSON.stringify(s));
   // shaking
-  const shakeOver = (turns, swing = 140, ms = 120) => {
-    const xs = [];
-    for (let i = 0; i < turns; i++) xs.push(IN.x + (i % 2 ? -swing / 2 : swing / 2));
-    xs.push(IN.x);
-    let from = IN.x;
-    for (const x of xs) {
-      for (let s2 = 30; s2 <= ms; s2 += 30) { t += 30; lk.sample({ x: from + (x - from) * ((1 - Math.cos(Math.PI * s2 / ms)) / 2), y: IN.y }, t); }
-      from = x;
+  // (axis 'x' side to side, 'y' up and down - 2026-11-28)
+  const shakeOver = (turns, swing = 140, ms = 120, axis = 'x') => {
+    const c = axis === 'y' ? IN.y : IN.x;
+    const vs = [];
+    for (let i = 0; i < turns; i++) vs.push(c + (i % 2 ? -swing / 2 : swing / 2));
+    vs.push(c);
+    let from = c;
+    for (const v of vs) {
+      for (let s2 = 30; s2 <= ms; s2 += 30) {
+        t += 30;
+        const w = from + (v - from) * ((1 - Math.cos(Math.PI * s2 / ms)) / 2);
+        lk.sample(axis === 'y' ? { x: IN.x, y: w } : { x: w, y: IN.y }, t);
+      }
+      from = v;
     }
   };
+  const lkClass = () => js("document.querySelector('#lockhint .lk').className");
   const w0 = msgs[msgs.length - 1].wiggle;
   shakeOver(2);
-  s = await look();
-  check(`${label}: the first shake swing -> the big 🔒 ("keep shaking")`, /\bbig\b/.test(s.hint) && msgs[msgs.length - 1].wiggle > w0, JSON.stringify(s));
+  s = await look();                                  // (the page has the step by then)
+  let cls = await lkClass();
+  check(`${label}: the first shake swing -> the big 🔒 ("keep shaking"), wiggling side to side`, /\bbig\b/.test(s.hint) && msgs[msgs.length - 1].wiggle > w0
+    && /\bwiggle\b/.test(cls) && !/\bvertical\b/.test(cls), `${JSON.stringify(s)} ${cls}`);
   fs.writeFileSync(path.join(out, `${label}-shaking.png`), (await win.webContents.capturePage()).toPNG());
   shakeOver(5);
   const un = msgs.some((m) => m.state === 'unlocking');
   at(IN, 700);
   s = await look();
   check(`${label}: a whole shake -> 🔓 -> open, the list at full`, un && !lk.locked() && Math.abs(s.root - 1) < 0.02, JSON.stringify(s));
+  // up and down (user 2026-11-28 - docked at an edge): the big 🔒 bobs up and down, a whole shake unlocks
+  at(AWAY, 3100);
+  check(`${label}: (locked again)`, lk.locked());
+  const w1 = msgs[msgs.length - 1].wiggle;
+  const k1 = msgs.length;
+  shakeOver(2, 140, 120, 'y');
+  s = await look();
+  cls = await lkClass();
+  check(`${label}: an up-and-down swing -> the big 🔒, wiggling up and down`, /\bbig\b/.test(s.hint) && msgs[msgs.length - 1].wiggle > w1
+    && /\bwiggle\b/.test(cls) && /\bvertical\b/.test(cls), `${JSON.stringify(s)} ${cls}`);
+  fs.writeFileSync(path.join(out, `${label}-shaking-vertical.png`), (await win.webContents.capturePage()).toPNG());
+  shakeOver(5, 140, 120, 'y');
+  const un2 = msgs.slice(k1).some((m) => m.state === 'unlocking');
+  at(IN, 700);
+  s = await look();
+  check(`${label}: a whole up-and-down shake -> 🔓 -> open`, un2 && !lk.locked() && Math.abs(s.root - 1) < 0.02, JSON.stringify(s));
   win.destroy();
 }
 

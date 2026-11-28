@@ -72,3 +72,11 @@ body.lock-big [data-lock-fade] { opacity: .3; }
   60% { transform: rotate(13deg); }
   100% { transform: rotate(0); }
 }
+/* shaken up and down (lock.js axis 'y'): the 🔒 bobs up and down instead */
+#lockhint .lk.wiggle.vertical { animation: lock-wiggle-v .24s ease-out; }
+@keyframes lock-wiggle-v {
+  0% { transform: translateY(0); }
+  25% { transform: translateY(-.22em); }
+  60% { transform: translateY(.18em); }
+  100% { transform: translateY(0); }
+}

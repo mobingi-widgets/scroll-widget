@@ -26,44 +26,64 @@ const UNLOCK_MS = 600;      // the 🔓 moment
 const DIM = 0.5;            // locked: this times the 투명도
 const FADE = 0.1;           // faded: about this, on the screen (the 투명도 included) - never 0, never above DIM
 
-// A shake: >= 4 horizontal turns within 600 ms, each swing between turns >= 40 DIP and mostly
-// sideways (its up-and-down travel at most 0.6 x its width: a circle is not a shake). A turn
-// counts once the pointer has come back 12 DIP from the furthest point. Samples off the list
-// (plus a margin, so a wide shake may cross its edge) start it over.
+// A shake: >= 4 turns along one axis within 600 ms, each swing between turns >= 40 DIP and mostly along
+// that axis (its travel across at most 0.6 x the swing: a circle or a diagonal is not a shake). A turn counts
+// once the pointer has come back 12 DIP from the furthest point. Samples off the list (plus a margin, so a wide
+// shake may cross its edge) start it over. Either axis (user 2026-11-28): docked at the game window's or the
+// screen's edge, a sideways shake runs into the edge or off the list - up and down is easier there.
 const SHAKE = { turns: 4, within: 600, swing: 40, back: 12, straight: 0.6, margin: 60 };
 
-// feed(p, t) -> 'none' | 'step' (one more good swing) | 'done' (a shake); reset()
-function shakeDetector(opt = SHAKE) {
+// one axis ('x' side to side, 'y' up and down): feed(p, t) -> 'none' | 'step' (one more good swing) | 'done'
+// (a shake); reset()
+function shakeDetector(opt = SHAKE, axis = 'x') {
+  const a = axis === 'y' ? 'y' : 'x';
+  const c = a === 'x' ? 'y' : 'x';     // the other axis: travel along it spoils a swing
   let last = null;          // the previous sample
   let start = null;         // where the movement started (before the first turn)
-  let dir = 0;              // +1 right, -1 left
-  let far = null;           // the furthest point this way { x, t }
-  let vpath = 0;            // up-and-down travel since the last turn
-  let turns = [];           // the good chain: turn points { x, t }
-  function reset() { last = null; start = null; dir = 0; far = null; vpath = 0; turns = []; }
+  let dir = 0;              // +1 right / down, -1 left / up
+  let far = null;           // the furthest point this way { v, t }
+  let across = 0;           // travel along the other axis since the last turn
+  let turns = [];           // the good chain: turn points { v, t }
+  function reset() { last = null; start = null; dir = 0; far = null; across = 0; turns = []; }
   function feed(p, t) {
-    if (!last) { last = p; start = { x: p.x, t }; return 'none'; }
-    vpath += Math.abs(p.y - last.y);
+    if (!last) { last = p; start = { v: p[a], t }; return 'none'; }
+    across += Math.abs(p[c] - last[c]);
     last = p;
     if (!dir) {
-      if (Math.abs(p.x - start.x) < opt.back) return 'none';
-      dir = Math.sign(p.x - start.x);
-      far = { x: p.x, t };
+      if (Math.abs(p[a] - start.v) < opt.back) return 'none';
+      dir = Math.sign(p[a] - start.v);
+      far = { v: p[a], t };
       return 'none';
     }
-    if ((p.x - far.x) * dir >= 0) { far = { x: p.x, t }; return 'none'; }     // still going that way
-    if (Math.abs(p.x - far.x) < opt.back) return 'none';
+    if ((p[a] - far.v) * dir >= 0) { far = { v: p[a], t }; return 'none'; }     // still going that way
+    if (Math.abs(p[a] - far.v) < opt.back) return 'none';
     // turned at far
     const turn = far;
     const prev = turns[turns.length - 1];
-    const swing = prev ? Math.abs(turn.x - prev.x) : Infinity;
-    const good = !prev || (swing >= opt.swing && vpath <= opt.straight * swing);
+    const swing = prev ? Math.abs(turn.v - prev.v) : Infinity;
+    const good = !prev || (swing >= opt.swing && across <= opt.straight * swing);
     turns = good ? [...turns, turn].filter((x) => turn.t - x.t <= opt.within) : [turn];
     dir = -dir;
-    far = { x: p.x, t };
-    vpath = 0;
+    far = { v: p[a], t };
+    across = 0;
     if (turns.length >= opt.turns) { reset(); return 'done'; }
     return good && prev ? 'step' : 'none';
+  }
+  return { feed, reset };
+}
+
+// both axes at once, the same rule: a step or a shake on either counts. feed(p, t) -> { r: 'none' | 'step' |
+// 'done', axis: 'x' | 'y' | null }; reset()
+function shakeEither(opt = SHAKE) {
+  const d = { x: shakeDetector(opt, 'x'), y: shakeDetector(opt, 'y') };
+  const reset = () => { d.x.reset(); d.y.reset(); };
+  function feed(p, t) {
+    const r = { x: d.x.feed(p, t), y: d.y.feed(p, t) };
+    for (const want of ['done', 'step']) {
+      const axis = ['x', 'y'].find((k) => r[k] === want);
+      if (axis) { if (want === 'done') reset(); return { r: want, axis }; }
+    }
+    return { r: 'none', axis: null };
   }
   return { feed, reset };
 }
@@ -81,6 +101,7 @@ function create(o) {
   let state = 'open';       // 'open' | 'locked' | 'unlocking'
   let hint = 'none';        // locked: 'none' | 'big' (shaking) | 'small' (faded: the 🔒 on the ☰)
   let wiggle = 0;           // shake progress (the page wiggles the 🔒 per step)
+  let axis = 'x';           // the way it is being shaken: the 🔒 wiggles that way
   let leftAt = null;        // off the list since
   let onAt = null;          // locked, on the list since
   let offAt = null;         // faded, off the list since
@@ -89,7 +110,7 @@ function create(o) {
   let unlockAt = null;
   let bound = [];           // the visible list: rectangles in CSS px of the page (lock-ui.js)
   let sent = '';
-  const shake = shakeDetector();
+  const shake = shakeEither();
 
   const alive = () => o.win && !o.win.isDestroyed();
   // the visible list in screen DIP (the union of its rectangles), or null when nothing shows
@@ -116,7 +137,7 @@ function create(o) {
     const op = Number(o.opacity()) || 1;
     const winOp = plain ? null : op;
     const dim = plain ? 1 : state === 'locked' ? (faded ? Math.min(DIM, FADE / op) : DIM) : 1;
-    const msg = { type: 'lock', on: !!o.enabled(), state, hint, wiggle, faded: state === 'locked' && faded, dim: Math.round(dim * 1000) / 1000, side: o.side() };
+    const msg = { type: 'lock', on: !!o.enabled(), state, hint, wiggle, axis, faded: state === 'locked' && faded, dim: Math.round(dim * 1000) / 1000, side: o.side() };
     const key = JSON.stringify([winOp, msg]);
     if (key === sent) return;
     sent = key;
@@ -160,14 +181,14 @@ function create(o) {
         shake.reset();
         if (hint === 'big') hint = 'none';
       } else {
-        const r = shake.feed(p, t);
+        const { r, axis: way } = shake.feed(p, t);
         if (r === 'done') {
           to('unlocking');
           unlockAt = t;
           look();
           return;
         }
-        if (r === 'step') { wiggle++; hint = 'big'; bigAt = t; }     // "keep shaking"
+        if (r === 'step') { wiggle++; axis = way; hint = 'big'; bigAt = t; }     // "keep shaking"
       }
       // resting: on the list DWELL_MS -> faded; off it BACK_MS -> back (a sweep across does nothing)
       if (on) {
@@ -224,8 +245,8 @@ function create(o) {
     sample, setBound, unlock, toggle, topItems, menuAct,
     locked: () => state !== 'open',
     shrunk: () => state === 'locked',            // (not while the 🔓 shows: that is on the full-size list)
-    state: () => ({ state, hint, wiggle, faded }),
+    state: () => ({ state, hint, wiggle, axis, faded }),
   };
 }
 
-module.exports = { create, shakeDetector, SHAKE, LEAVE_MS, DWELL_MS, BACK_MS, BIG_MS, UNLOCK_MS, DIM, FADE };
+module.exports = { create, shakeDetector, shakeEither, SHAKE, LEAVE_MS, DWELL_MS, BACK_MS, BIG_MS, UNLOCK_MS, DIM, FADE };

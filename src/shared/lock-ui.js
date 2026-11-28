@@ -44,7 +44,7 @@
     btn.classList.toggle('on', on);
     btn.tipModel = {
       title: '자동 잠금', sub: on ? '켬' : '끔',
-      lines: ['목록 밖으로 나가고 3초 뒤 흐려집니다', '흐린 동안 마우스가 통과합니다', '목록 위에서 마우스를 흔들면 풀립니다'],
+      lines: ['목록 밖으로 나가고 3초 뒤 흐려집니다', '흐린 동안 마우스가 통과합니다', '목록 위에서 마우스를 좌우나 위아래로 흔들면 풀립니다'],
       note: '클릭: 켜기 · 끄기',
     };
   }
@@ -147,6 +147,7 @@
     place();
     if (kind === 'big' && d.wiggle !== was.wiggle) {
       icon.classList.remove('wiggle');
+      icon.classList.toggle('vertical', d.axis === 'y');     // shaken up and down: it wiggles up and down
       void icon.offsetWidth;                         // restart the animation
       icon.classList.add('wiggle');
     }
